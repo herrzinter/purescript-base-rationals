@@ -1,0 +1,23 @@
+{
+  "name": "purescript-basecalculator",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "output"
+  ],
+  "dependencies": {
+    "purescript-prelude": "^3.0.0",
+    "purescript-console": "3.0.0",
+    "purescript-lists" : "4.0.1",
+    "purescript-tuples" : "4.1.0",
+    "purescript-bigints": "3.0.0",
+    "purescript-rationals": "3.1.1",
+    "purescript-math": "2.1.0",
+    "purescript-integers": "3.0.0",
+    "purescript-generics" : "4.0.0"
+  },
+  "devDependencies": {
+    "purescript-psci-support": "^3.0.0"
+  }
+}
