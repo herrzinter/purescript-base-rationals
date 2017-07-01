@@ -3,12 +3,11 @@ module Basis where
 
 import Prelude
 
-import Data.BigInt (BigInt(..), fromInt, fromString, pow, toNumber, toString,
-                    abs)
-import Data.Int (fromNumber)
+import Control.Bind ((=<<))
+import Data.BigInt (BigInt(..), fromInt, fromString, pow, toNumber, toString, abs)
 import Data.Foldable (any, foldl, foldr)
-import Data.List (List(..), drop, elemIndex, filter, fromFoldable, index,
-                  length, reverse, slice, snoc, toUnfoldable, (..), (:))
+import Data.Int (fromNumber)
+import Data.List (List(..), findIndex, take, drop, elemIndex, filter, fromFoldable, index, length, reverse, slice, snoc, toUnfoldable, (..), (:))
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Ratio (Ratio(..), denominator, numerator)
 import Data.String (count, fromCharArray, toCharArray)
@@ -133,6 +132,8 @@ createBasisFunctions digits =
                     pure $ Ratio numerator denominator
             | otherwise = Nothing
 
+        getPost' = getPost digits
+
         toString :: Int -> Ratio BigInt -> Maybe (List Char)
         toString basis ratio@(Ratio numerator denominator)
             | basis >= basisMax = Nothing
@@ -146,7 +147,7 @@ createBasisFunctions digits =
 
                 -- Calculate *pre* and *post* radix strings
                 pre <- stringFromBase Nil propper
-                post <- getPost (pseudoFloatFromRatio remainder) basis finit
+                post <- getPost' basis finit (pseudoFloatFromRatio remainder)
                 let string = pre <> (Cons '.' Nil) <> post
 
                 -- TODO Alter string for display
@@ -170,8 +171,6 @@ createBasisFunctions digits =
 
                         stringFromBase (c : cs) quotient
                     | otherwise = Just $ cs
-
-                getPost _ _ _ = Just (Cons 'c' Nil)
 
         basisFunctions =    {   fromStringFunction  : fromString
                             -- ,   toStringFunction    : toString
@@ -239,3 +238,43 @@ pseudoFloatFromRatio (Ratio numerator denominator) = divide (numerator * ten) Ni
                         factor = charListFromBigInt $ dividend / denominator
                         quotients' = foldr (:) quotients (reverse factor)
                         dividend' = (dividend `mod` denominator) * ten
+
+
+getPost
+    :: List Char          -- Digits
+    -> Int                -- Base
+    -> Boolean            -- Is the number reccurrent in the base
+    -> PseudoFloat        -- Remainder as pseudo float
+    -> Maybe (List Char)  -- Post radix string
+getPost digits basis finit pf@(PseudoFloat f0) = go Nil Nil pf
+  where
+    basisBI = fromInt basis
+    shift = ten `pow` (fromInt f0.shift)
+
+    go
+        :: List BigInt        -- Intermediate values to check for reccurence
+        -> List Char          -- Accumulator for the output string
+        -> PseudoFloat
+        -> Maybe (List Char)  -- Output String
+    go fs cs (PseudoFloat float)
+        -- If the finit part of the pseudo float is zero, then everything has
+        -- been expressed in the output string
+        | float.finit == zero  = Just cs
+        | otherwise = case float.finit `elemIndex` fs of
+            -- Recurrence detected, add paranthesis marking
+            -- recurrend part and end
+            Nothing -> do
+                -- TODO implement carry
+
+                -- Calculate char *c*, finit *f''*
+                let iBI = float.finit / shift
+                -- i <- fromNumber $ toNumber iBI
+                c <- ((digits :: List Char )`index` 1) :: Maybe (Char)
+
+                -- Update pseudo float
+                let float'' = PseudoFloat (float {   finit = float.finit - iBI * shift,   infinit = float.infinit})
+
+                go (float.finit : fs) (c : cs) float''
+            Just i -> Just $
+                take i cs <> (Cons '[' Nil) <> drop i cs <> (Cons ']' Nil)
+            -- No recurrence, calculate next step
