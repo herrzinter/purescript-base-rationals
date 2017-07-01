@@ -2,13 +2,16 @@ module Basis where
 
 
 import Prelude
-import Data.List (List (..), length, index, elemIndex, (..), (:), filter,
-                  reverse, fromFoldable, snoc)
-import Data.String (toCharArray)
+
+import Data.BigInt (BigInt(..), fromInt, fromString, pow, toNumber, toString,
+                    abs)
+import Data.Int (fromNumber)
 import Data.Foldable (any, foldl, foldr)
-import Data.Ratio (Ratio (..))
-import Data.Maybe (Maybe (..), fromMaybe)
-import Data.BigInt (pow, BigInt (..), fromInt, toString, toNumber)
+import Data.List (List(..), drop, elemIndex, filter, fromFoldable, index,
+                  length, reverse, slice, snoc, toUnfoldable, (..), (:))
+import Data.Maybe (Maybe(..), fromMaybe)
+import Data.Ratio (Ratio(..), denominator, numerator)
+import Data.String (count, fromCharArray, toCharArray)
 
 
 
@@ -33,8 +36,8 @@ factorize factors number
                 | otherwise =
                 factorizeRecursive fs factorization
             factorizeRecursive _ factorization = factorization
-        in factorizeRecursive factors {fs : Nil, remainder : number}
-    | otherwise = {fs : Nil, remainder : zero}
+        in factorizeRecursive factors {factors : Nil, remainder : number}
+    | otherwise = {factors : Nil, remainder : zero}
 
 
 -- | Calculate all prime numbers between two and the maximum
@@ -53,11 +56,11 @@ calculatePrimes maximum
     | otherwise = Nil
 
 
-type BasisFunctions =   {   getDigits           :: Maybe Int -> List Char
-                        ,   fromStringFunction  :: Int -> List Char -> Maybe (Ratio BigInt)
-                        -- ,   toStringFunction    :: Int -> Ratio BigInt -> List Char
-                        ,   isFinitFunction     :: Int -> Ratio BigInt -> Maybe Boolean
-                        }
+type BasisFunctions =
+    {   fromStringFunction  :: Int -> List Char -> Maybe (Ratio BigInt)
+    -- ,   toStringFunction    :: Int -> Ratio BigInt -> List Char
+    ,   isFinitFunction     :: Int -> Ratio BigInt -> Maybe Boolean
+    }
 
 
 
@@ -102,7 +105,7 @@ createBasisFunctions digits =
             ratio <- fromString basis string
             pure (-ratio)
         fromString basis string
-            | 1 < basis || basis <= basisMax = maybeRatio
+            | 1 < basis && basis <= basisMax = maybeRatio
               where
                 basisbi = fromInt basis
 
@@ -130,23 +133,47 @@ createBasisFunctions digits =
                     pure $ Ratio numerator denominator
             | otherwise = Nothing
 
-        -- toString :: Int -> Ratio BigInt -> List Char
-        -- toString basis (Ratio numerator denominator) | basis >= basisMax = Nil
-              -- where
-                -- TODO This can not fail, nevertheless it should be handled properly
-                -- finit = fromMaybe false (isFinit basis ratio)
+        toString :: Int -> Ratio BigInt -> Maybe (List Char)
+        toString basis ratio@(Ratio numerator denominator)
+            | basis >= basisMax = Nothing
+            | otherwise = do
+                finit <- isFinit basis ratio
 
-                -- test = {
-                --     finit           : fromString pseudoFloat.string
-                --     infinit         : do
-                --         infinit <- pseudoFloat.infinit
+                -- Seperate the *propper* part of the fraction and the
+                -- *remainder*
+                let propper = abs $ numerator / denominator
+                let remainder = ratio - (Ratio propper one)
 
-                --     infinitlength   : length pseudoFloat.string - pseudoFloat.infinit
-                --     shift           :
-                -- }
+                -- Calculate *pre* and *post* radix strings
+                pre <- stringFromBase Nil propper
+                post <- getPost (pseudoFloatFromRatio remainder) basis finit
+                let string = pre <> (Cons '.' Nil) <> post
 
-        basisFunctions =    {   getDigits           : \_ -> digits
-                            ,   fromStringFunction  : fromString
+                -- TODO Alter string for display
+
+                pure $ string
+              where
+                basisbi = fromInt basis
+                -- Calculate a string representation of `dividend` in `basis`
+                stringFromBase :: List Char -- Accumulator for output string
+                               -> BigInt    -- Accumulator for number
+                               -> Maybe (List Char)
+                stringFromBase cs dividend
+                    | dividend >= one = do
+                        -- Calculate quotient and remainder of division by
+                        -- basis
+                        let remainder = dividend `mod` basisbi
+                        let quotient = (dividend - remainder) / basisbi
+                        -- Get Corresponding digit character
+                        i <- fromNumber <<< toNumber $ remainder
+                        c <- digits `index` i
+
+                        stringFromBase (c : cs) quotient
+                    | otherwise = Just $ cs
+
+                getPost _ _ _ = Just (Cons 'c' Nil)
+
+        basisFunctions =    {   fromStringFunction  : fromString
                             -- ,   toStringFunction    : toString
                             ,   isFinitFunction     : isFinit
                             }
@@ -154,77 +181,61 @@ createBasisFunctions digits =
 
 ten = fromInt 10 :: BigInt
 
-data DivisionResult = DivisionResult    {   finit   :: BigInt
-                                        ,   infinit :: Maybe Int
-                                        ,   string  :: List Char
-                                        ,   count   :: BigInt
-                                        ,   test    :: List BigInt
-                                        }
 
--- divisionResult finit infinit string count test =
---     DivisionResult  {   finit   : finit
---                     ,   infinit : infinit
---                     ,   string  : string
---                     ,   count   : count
---                     ,   test    : test
---                     }
+-- TODO more usefull default
+bigIntFromCharList :: List Char -> BigInt
+bigIntFromCharList = (fromMaybe zero) <<< fromString <<< fromCharArray <<< toUnfoldable
+
+charListFromBigInt :: BigInt -> List Char
+charListFromBigInt = fromFoldable <<< toCharArray <<< toString
+
+
+data PseudoFloat = PseudoFloat
+    {   finit   :: BigInt
+    ,   infinit :: BigInt
+    ,   shift   :: Int
+    }
 
 -- TODO use generics, problem: bigdata cannot derive generics
-instance showDivisionResult :: Show DivisionResult where
-    show (DivisionResult dr) =
-        "{finit : " <> (show dr.finit) <> ", infinit : "
-        <> (show dr.infinit) <> ", string : " <> (show dr.string)
-        <> ", count : " <> (show dr.count) <> ", test : "
-        <> (show dr.test) <> "}"
+instance showPseudoFloat :: Show PseudoFloat where
+    show (PseudoFloat dr) =
+        "{finit : " <> (show dr.finit)
+        <> ", infinit : " <> (show dr.infinit)
+        <> ", shift : " <> (show dr.shift) <> "}"
 
-
-
-divide :: Ratio BigInt -> DivisionResult
-divide (Ratio numerator denominator) = divide' numerator Nil Nil zero
+pseudoFloatFromRatio :: Ratio BigInt -> PseudoFloat
+pseudoFloatFromRatio (Ratio numerator denominator) = divide numerator Nil Nil zero
   where
-    divide' :: BigInt -> List BigInt -> List Char -> BigInt -> DivisionResult
-    divide' num nums string count
-        | num == zero = divisionResult num Nothing string count nums
-        | otherwise   =
-            case num `elemIndex` nums of
+    divide :: BigInt       -- Current divident
+           -> List BigInt  -- List of previous dividents
+           -> List Char    -- List of whole quotients
+           -> Int          -- Counter
+           -> PseudoFloat
+    divide dividend previousDividends quotients counter
+        | dividend == zero = PseudoFloat
+            {   finit   : bigIntFromCharList quotients
+            ,   infinit : zero
+            ,   shift   : counter
+            }
+        | otherwise =
+            case dividend `elemIndex` previousDividends of
                 -- In case of recurrence, return the result, otherwise, divide
                 -- the remaining numerator further
-                Just infinit    -> divisionResult num (Just infinit) string count nums
-                Nothing         ->
-                    divide' num' (num : nums) string' (count + one)
+                Just i_infinit ->
+                    let infinit = bigIntFromCharList (drop i_infinit quotients)
+                        finit = bigIntFromCharList quotients - infinit
+                    in  PseudoFloat
+                        {   finit   : finit
+                        ,   infinit : infinit
+                        ,   shift   : counter
+                        }
+                Nothing ->
+                    divide dividend' previousDividends' quotients' counter'
                       where
+                        counter' = counter + one
+                        previousDividends' = dividend : previousDividends
                         -- Factorize by the current denominator, and save the
-                        -- factor to the string of factors
-                        -- TODO type simplification? At the moment it is
-                        -- BigInt -> String -> Array Char -> List Char
-                        factor  = fromFoldable $ toCharArray $ toString $ num / denominator
-                        string' = foldr (:) string (reverse factor)
-                        num'    = (num `mod` denominator) * ten
-
--- type PseudoFloat = PseudoFloat
---     {   finit           :: BigInt
---     ,   infinit         :: Maybe BigInt
---     ,   infinitLength   :: Int
---     ,   shift           :: BigInt
---     }
--- data Point = Point { x :: Number, y :: Number }
--- createPseudoFloat :: Ratio BigInt -> PseudoFloat
--- createPseudoFloat (Ratio numerator denominator) = pseudoFloat
---   where
-
---     divisionResult = divideNumerator numerator Nil "" zero
-
---     infinitLength = (fromInt $ length numeratorDivision.string) - numeratorDivision.infinit
---     finit = fromString numeratorDivision.string
-
-    -- (Tuple finit' infinit') = case numeratorDivision.infinit of
-    --     Nothing -> Tuple finit Nothing
-    --     Just x  -> Tuple finit infinit
-    --       where
-    --         infinit = fromString $ drop (toInt infinit) string :: BigInt
-    --         finit' = finit - infinit
---     pseudoFloat = PseudoFloat   {   finit           : numeratorDivision.finit
---                                 ,   infinit         :
---                                 ,   infinitlength   :
---                                 ,   shift           : ten `pow` numeratorDivision.count
---                                 }
+                        -- factor to the string of quotients
+                        factor = charListFromBigInt $ dividend / denominator
+                        quotients' = foldr (:) quotients (reverse factor)
+                        dividend' = (dividend `mod` denominator) * ten
