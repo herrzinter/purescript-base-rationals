@@ -204,7 +204,7 @@ instance showPseudoFloat :: Show PseudoFloat where
         <> ", shift : " <> (show dr.shift) <> "}"
 
 pseudoFloatFromRatio :: Ratio BigInt -> PseudoFloat
-pseudoFloatFromRatio (Ratio numerator denominator) = divide numerator Nil Nil zero
+pseudoFloatFromRatio (Ratio numerator denominator) = divide (numerator * ten) Nil Nil zero
   where
     divide :: BigInt       -- Current divident
            -> List BigInt  -- List of previous dividents
