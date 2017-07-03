@@ -6,12 +6,13 @@ import Prelude
 import Control.Bind ((=<<))
 import Data.BigInt (BigInt(..), fromInt, fromString, pow, toNumber, toString, abs)
 import Data.Foldable (any, foldl, foldr)
+import Data.Function ((#))
 import Data.Int (fromNumber)
 import Data.List (List(..), findIndex, take, drop, elemIndex, filter, fromFoldable, index, length, reverse, slice, snoc, toUnfoldable, (..), (:))
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Ratio (Ratio(..), denominator, numerator)
 import Data.String (count, fromCharArray, toCharArray)
-
+import Data.String as String
 
 
 
@@ -246,35 +247,69 @@ getPost
     -> Boolean            -- Is the number reccurrent in the base
     -> PseudoFloat        -- Remainder as pseudo float
     -> Maybe (List Char)  -- Post radix string
-getPost digits basis finit pf@(PseudoFloat f0) = go Nil Nil pf
+getPost digits basis isFinit pf@(PseudoFloat f0) = go zero Nil Nil pf
   where
     basisBI = fromInt basis
     shift = ten `pow` (fromInt f0.shift)
+    l = fromInt <<< String.length <<< toString $ f0.infinit
+    d = ten `pow` l
 
     go
-        :: List BigInt        -- Intermediate values to check for reccurence
+        :: BigInt             -- Counter
+        -> List BigInt        -- Intermediate values to check for reccurence
         -> List Char          -- Accumulator for the output string
         -> PseudoFloat
         -> Maybe (List Char)  -- Output String
-    go fs cs (PseudoFloat float)
+    go j fs cs (PseudoFloat float)
         -- If the finit part of the pseudo float is zero, then everything has
         -- been expressed in the output string
         | float.finit == zero  = Just cs
         | otherwise = case float.finit `elemIndex` fs of
-            -- Recurrence detected, add paranthesis marking
-            -- recurrend part and end
-            Nothing -> do
+            -- Recurrence -> return with parantheses marking recurrence
+             Just i -> Just $
+                take i cs <> (Cons '[' Nil) <> drop i cs <> (Cons ']' Nil)
+            -- No recurrence -> calculate next step
+             Nothing -> do
                 -- TODO implement carry
+                let float' = PseudoFloat $
+                    float   {   finit   = float.finit   * basisBI
+                            ,   infinit = float.infinit * basisBI
+                            }
+
+                let float'' = updateInfinit float' l d isFinit j
 
                 -- Calculate char *c*, finit *f''*
                 let iBI = float.finit / shift
-                -- i <- fromNumber $ toNumber iBI
-                c <- ((digits :: List Char )`index` 1) :: Maybe (Char)
+                i <- fromNumber $ toNumber iBI
+                c <- digits `index` i
 
-                -- Update pseudo float
-                let float'' = PseudoFloat (float {   finit = float.finit - iBI * shift,   infinit = float.infinit})
+                let float0'' = PseudoFloat $ float {finit = float.finit - iBI * shift}
 
-                go (float.finit : fs) (c : cs) float''
-            Just i -> Just $
-                take i cs <> (Cons '[' Nil) <> drop i cs <> (Cons ']' Nil)
-            -- No recurrence, calculate next step
+                go (j + one) (float.finit : fs) (c : cs) float0''
+
+
+updateInfinit
+    :: PseudoFloat
+    -> BigInt
+    -> BigInt
+    -> Boolean
+    -> BigInt
+    -> PseudoFloat
+updateInfinit (PseudoFloat float) imin divisor isFinit j
+      | float.infinit == zero = PseudoFloat float
+      | otherwise = PseudoFloat float {finit = finit', infinit = infinit''}
+        where
+          infinit' = go imin float.infinit
+
+          carry = infinit' / divisor
+          infinit'' = infinit' - carry * divisor
+
+          carry' = if j == zero && isFinit == true then carry + one else carry
+
+          finit' = float.finit + carry'
+
+          imax = fromInt <<< String.length <<< toString $ float.infinit
+          go i infinit
+              | i < imax =
+                  go (i + one) (infinit + float.infinit / (ten `pow` i))
+              | otherwise = infinit
