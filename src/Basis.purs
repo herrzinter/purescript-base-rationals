@@ -5,6 +5,7 @@ import Prelude
 
 import Control.Bind ((=<<))
 import Data.BigInt (BigInt(..), fromInt, fromString, pow, toNumber, toString, abs)
+import Data.EuclideanRing (class EuclideanRing)
 import Data.Foldable (any, foldl, foldr)
 import Data.Function ((#))
 import Data.Int (fromNumber)
@@ -13,6 +14,7 @@ import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Ratio (Ratio(..), denominator, numerator)
 import Data.String (count, fromCharArray, toCharArray)
 import Data.String as String
+import Global (isFinite)
 
 
 
@@ -251,65 +253,66 @@ getPost digits basis isFinit pf@(PseudoFloat f0) = go zero Nil Nil pf
   where
     basisBI = fromInt basis
     shift = ten `pow` (fromInt f0.shift)
-    l = fromInt <<< String.length <<< toString $ f0.infinit
-    d = ten `pow` l
 
     go
         :: BigInt             -- Counter
         -> List BigInt        -- Intermediate values to check for reccurence
         -> List Char          -- Accumulator for the output string
-        -> PseudoFloat
+        -> PseudoFloat        -- Intermediate value
         -> Maybe (List Char)  -- Output String
     go j fs cs (PseudoFloat float)
         -- If the finit part of the pseudo float is zero, then everything has
-        -- been expressed in the output string
+        -- been expressed in the output string -> Return
         | float.finit == zero  = Just cs
+        -- Otherwise, try to express yet more of the intermediate value in
+        -- a character in the output base
         | otherwise = case float.finit `elemIndex` fs of
             -- Recurrence -> return with parantheses marking recurrence
              Just i -> Just $
                 take i cs <> (Cons '[' Nil) <> drop i cs <> (Cons ']' Nil)
             -- No recurrence -> calculate next step
              Nothing -> do
-                -- TODO implement carry
-                let float' = PseudoFloat $
-                    float   {   finit   = float.finit   * basisBI
-                            ,   infinit = float.infinit * basisBI
-                            }
+                -- Update float based on calculations with the infinit part
+                let (PseudoFloat float') = ((PseudoFloat float) `scalePseudoFloat` basisBI)
 
-                let float'' = updateInfinit float' l d isFinit j
+                let carry = if j == zero && isFinit == true then one else zero
+                let float'' = float' {finit = float'.finit + carry}
 
-                -- Calculate char *c*, finit *f''*
-                let iBI = float.finit / shift
+                -- Calculate index *i* and corresponding char *c*
+                let iBI = float''.finit / shift
                 i <- fromNumber $ toNumber iBI
                 c <- digits `index` i
 
-                let float0'' = PseudoFloat $ float {finit = float.finit - iBI * shift}
+                -- Update finit part according to index *i*
+                let float0'' = float'' {finit = float''.finit - iBI * shift}
 
-                go (j + one) (float.finit : fs) (c : cs) float0''
+                go (j + one) (float.finit : fs) (c : cs) (PseudoFloat float0'')
 
 
-updateInfinit
-    :: PseudoFloat
-    -> BigInt
-    -> BigInt
-    -> Boolean
-    -> BigInt
-    -> PseudoFloat
-updateInfinit (PseudoFloat float) imin divisor isFinit j
-      | float.infinit == zero = PseudoFloat float
-      | otherwise = PseudoFloat float {finit = finit', infinit = infinit''}
-        where
-          infinit' = go imin float.infinit
+scalePseudoFloat
+    :: PseudoFloat  -- Input float
+    -> BigInt       -- Scaling factor
+    -> PseudoFloat  -- Output float
+scalePseudoFloat (PseudoFloat float) factor
+    --
+    | float.infinit == zero = PseudoFloat $ float {finit = float.finit * factor}
+    | otherwise = PseudoFloat float {finit = finit', infinit = infinit''}
+      where
+        numberOfInfinitDigits =
+            fromInt <<< String.length <<< toString $ float.infinit
+        infinitShift = ten `pow` numberOfInfinitDigits
 
-          carry = infinit' / divisor
-          infinit'' = infinit' - carry * divisor
+        infinit' = go numberOfInfinitDigits (float.infinit * factor)
 
-          carry' = if j == zero && isFinit == true then carry + one else carry
+        carry     = infinit' / infinitShift
+        infinit'' = infinit' - carry * infinitShift
+        finit'    = float.finit * factor + carry
 
-          finit' = float.finit + carry'
+        imax = fromInt <<< String.length <<< toString $ float.infinit
 
-          imax = fromInt <<< String.length <<< toString $ float.infinit
-          go i infinit
-              | i < imax =
-                  go (i + one) (infinit + float.infinit / (ten `pow` i))
-              | otherwise = infinit
+        go i infinit
+            | i < imax =
+                go
+                    (i + numberOfInfinitDigits)
+                    (infinit + float.infinit / (ten `pow` i))
+            | otherwise = infinit
