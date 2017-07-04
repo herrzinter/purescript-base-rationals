@@ -249,18 +249,18 @@ getPost
     -> Boolean            -- Is the number reccurrent in the base
     -> PseudoFloat        -- Remainder as pseudo float
     -> Maybe (List Char)  -- Post radix string
-getPost digits basis isFinit pf@(PseudoFloat f0) = go zero Nil Nil pf
+getPost digits basis isFinit pf@(PseudoFloat f0) = loop zero Nil Nil pf
   where
     basisBI = fromInt basis
     shift = ten `pow` (fromInt f0.shift)
 
-    go
+    loop
         :: BigInt             -- Counter
         -> List BigInt        -- Intermediate values to check for reccurence
         -> List Char          -- Accumulator for the output string
         -> PseudoFloat        -- Intermediate value
         -> Maybe (List Char)  -- Output String
-    go j fs cs (PseudoFloat float)
+    loop j fs cs (PseudoFloat float)
         -- If the finit part of the pseudo float is zero, then everything has
         -- been expressed in the output string -> Return
         | float.finit == zero  = Just cs
@@ -286,33 +286,50 @@ getPost digits basis isFinit pf@(PseudoFloat f0) = go zero Nil Nil pf
                 -- Update finit part according to index *i*
                 let float0'' = float'' {finit = float''.finit - iBI * shift}
 
-                go (j + one) (float.finit : fs) (c : cs) (PseudoFloat float0'')
-
+                loop (j + one) (float.finit : fs) (c : cs) (PseudoFloat float0'')
 
 scalePseudoFloat
-    :: PseudoFloat  -- Input float
+    :: PseudoFloat  -- Input
     -> BigInt       -- Scaling factor
-    -> PseudoFloat  -- Output float
-scalePseudoFloat (PseudoFloat float) factor
-    --
-    | float.infinit == zero = PseudoFloat $ float {finit = float.finit * factor}
-    | otherwise = PseudoFloat float {finit = finit', infinit = infinit''}
-      where
-        numberOfInfinitDigits =
-            fromInt <<< String.length <<< toString $ float.infinit
-        infinitShift = ten `pow` numberOfInfinitDigits
+    -> PseudoFloat  -- Output
+scalePseudoFloat pseudoFloat@(PseudoFloat pseudoFloatRec) factor
+    | not $ isRecurring pseudoFloat = PseudoFloat
+        pseudoFloatRec {finit = pseudoFloatRec.finit * factor}
+    | otherwise = PseudoFloat
+        pseudoFloatRec   {   finit   = pseudoFloatRec.finit * factor + carry
+                         ,   infinit = infinit'' - carry * infinitShift
+                         }
+  where
+    -- Calculate the new infinit part, and the carry for the finit part
+    -- by multiplying (possibly multiple times) the infinit part with
+    -- the factor.
+    -- First, the finit and infinit part are multiplied by the factor. If
+    -- the number is infinetly recurring, the carry from the infinet
+    -- recurrence are calculated. In order to do so, it is estimated, how
+    -- many digits the carry is long and thus, how many recurrences
+    -- influence the *last* infinit part, and the finit part.
+    -- Eg.: If the recurrence is '91' and it is multiplied by factor '10000',
+    -- then the new value is '9100000' which is 5 digits longer then the
+    -- recurrence. Thus, one has to take into account the carries from 3
+    -- previous infinit parts. This is done in the *loop* function.
 
-        infinit' = go numberOfInfinitDigits (float.infinit * factor)
+    numberOfInfinitDigits = countDigits pseudoFloatRec.infinit
+    infinit' = pseudoFloatRec.infinit * factor
+    numberOfInfinitDigits' = countDigits infinit'
 
-        carry     = infinit' / infinitShift
-        infinit'' = infinit' - carry * infinitShift
-        finit'    = float.finit * factor + carry
+    infinit'' = loop numberOfInfinitDigits infinit'
+    infinitShift = ten `pow` numberOfInfinitDigits
+    carry = infinit'' / infinitShift
 
-        imax = fromInt <<< String.length <<< toString $ float.infinit
+    loop i infinit
+        | i < numberOfInfinitDigits' =
+            loop
+                (i + numberOfInfinitDigits)
+                (infinit + pseudoFloatRec.infinit / (ten `pow` i))
+        | otherwise = infinit
 
-        go i infinit
-            | i < imax =
-                go
-                    (i + numberOfInfinitDigits)
-                    (infinit + float.infinit / (ten `pow` i))
-            | otherwise = infinit
+isRecurring :: PseudoFloat -> Boolean
+isRecurring (PseudoFloat pseudoFloatRec) = pseudoFloatRec.infinit == zero
+
+countDigits :: BigInt -> BigInt
+countDigits = fromInt <<< String.length <<< toString
