@@ -117,11 +117,10 @@ createBasisFunctions digitsArray =
               where
                 basisbi = fromInt basis
 
-                point = fromInt $ fromMaybe (length string) ('.' `elemIndex` string)
-                shift = (fromInt $ length string) - point
-                denominator = basisbi `pow` shift
-
+                point = fromMaybe (length string) ('.' `elemIndex` string)
                 string' = filter (\c -> c /= '.') string
+                shift = fromInt $ length string' - point
+                denominator = basisbi `pow` shift
 
                 parseDigits :: List Char -> BigInt -> BigInt -> Maybe BigInt
                 parseDigits Nil            accumulator _        = Just accumulator
@@ -132,12 +131,12 @@ createBasisFunctions digitsArray =
                     let positionValue   = basisbi `pow` position
                     let delta           = (fromInt digitValue) * positionValue
 
-                    parseDigits chars (accumulator + delta) (position + (fromInt 1))
+                    parseDigits chars (accumulator + delta) (position + one)
 
                 maybeRatio :: Maybe (Ratio BigInt)
                 maybeRatio =
                   do
-                    numerator <- parseDigits string' zero zero
+                    numerator <- parseDigits (reverse string') zero zero
                     pure $ Ratio numerator denominator
             | otherwise = Nothing
 
