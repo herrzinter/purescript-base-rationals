@@ -12,9 +12,9 @@ import Data.Int (fromNumber)
 import Data.List (List(..), findIndex, take, drop, elemIndex, filter, fromFoldable, index, length, reverse, slice, snoc, toUnfoldable, (..), (:))
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Ratio (Ratio(..), denominator, numerator)
-import Data.String (count, fromCharArray, toCharArray)
+
 import Data.String as String
-import Global (isFinite)
+import Data.Array as Array
 
 
 
@@ -59,18 +59,19 @@ calculatePrimes maximum
 
 
 type BasisFunctions =
-    {   fromStringFunction  :: Int -> List Char -> Maybe (Ratio BigInt)
-    -- ,   toStringFunction    :: Int -> Ratio BigInt -> List Char
-    ,   isFinitFunction     :: Int -> Ratio BigInt -> Maybe Boolean
+    {   isFinit     :: Int -> Ratio BigInt -> Maybe Boolean
+    ,   fromString  :: Int -> String       -> Maybe (Ratio BigInt)
+    ,   toString    :: Int -> Ratio BigInt -> Maybe String
     }
 
 
 
-createBasisFunctions :: List Char -> Maybe BasisFunctions
-createBasisFunctions digits =
+createBasisFunctions :: Array Char -> Maybe BasisFunctions
+createBasisFunctions digitsArray =
     -- Basis smaller equal one do not make sense
     if basisMax > 1 then Just basisFunctions else Nothing
       where
+        digits = fromFoldable digitsArray
         basisMax = length digits
         -- The prime factorizations of all possible basis' of a list of digits
         -- is used for several calculations eg. checking, if a fraction has a
@@ -101,7 +102,12 @@ createBasisFunctions digits =
                     | number `mod` factor == zero = factorizeMany (number / factor) factor
                     | otherwise                   = number
 
+        fromString' :: Int -> String -> Maybe (Ratio BigInt)
+        fromString' basis =
+            fromString basis <<< fromFoldable <<< String.toCharArray
+
         -- Match possible negative sign, parse remaining string and negate result
+        fromString :: Int -> List Char -> Maybe (Ratio BigInt)
         fromString basis ('-' : string) =
           do
             ratio <- fromString basis string
@@ -137,7 +143,7 @@ createBasisFunctions digits =
 
         getPost' = getPost digits
 
-        toString :: Int -> Ratio BigInt -> Maybe (List Char)
+        toString :: Int -> Ratio BigInt -> Maybe String
         toString basis ratio@(Ratio numerator denominator)
             | basis >= basisMax = Nothing
             | otherwise = do
@@ -155,7 +161,7 @@ createBasisFunctions digits =
 
                 -- TODO Alter string for display
 
-                pure $ string
+                pure <<< String.fromCharArray <<< toUnfoldable $ string
               where
                 basisbi = fromInt basis
                 -- Calculate a string representation of `dividend` in `basis`
@@ -175,9 +181,9 @@ createBasisFunctions digits =
                         stringFromBase (c : cs) quotient
                     | otherwise = Just $ cs
 
-        basisFunctions =    {   fromStringFunction  : fromString
-                            -- ,   toStringFunction    : toString
-                            ,   isFinitFunction     : isFinit
+        basisFunctions =    {   fromString  : fromString'
+                            ,   toString    : toString
+                            ,   isFinit     : isFinit
                             }
 
 
@@ -186,10 +192,10 @@ ten = fromInt 10 :: BigInt
 
 -- TODO more usefull default
 bigIntFromCharList :: List Char -> BigInt
-bigIntFromCharList = (fromMaybe zero) <<< fromString <<< fromCharArray <<< toUnfoldable
+bigIntFromCharList = (fromMaybe zero) <<< fromString <<< String.fromCharArray <<< toUnfoldable
 
 charListFromBigInt :: BigInt -> List Char
-charListFromBigInt = fromFoldable <<< toCharArray <<< toString
+charListFromBigInt = fromFoldable <<< String.toCharArray <<< toString
 
 
 data PseudoFloat = PseudoFloat
