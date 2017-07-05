@@ -4,7 +4,9 @@ module Basis where
 import Prelude
 
 import Control.Bind ((=<<))
+import Data.Array as Array
 import Data.BigInt (BigInt(..), fromInt, fromString, pow, toNumber, toString, abs)
+import Data.Either (Either)
 import Data.EuclideanRing (class EuclideanRing)
 import Data.Foldable (any, foldl, foldr)
 import Data.Function ((#))
@@ -12,11 +14,9 @@ import Data.Int (fromNumber)
 import Data.List (List(..), findIndex, take, drop, elemIndex, filter, fromFoldable, index, length, reverse, slice, snoc, toUnfoldable, (..), (:))
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Ratio (Ratio(..), denominator, numerator)
-
 import Data.String as String
-import Data.Array as Array
-
-
+import Data.Either (Either (..))
+import Control.Error.Util (note)
 
 two = one + one
 
@@ -60,8 +60,8 @@ calculatePrimes maximum
 
 type BasisFunctions =
     {   isFinit     :: Int -> Ratio BigInt -> Maybe Boolean
-    ,   fromString  :: Int -> String       -> Maybe (Ratio BigInt)
-    ,   toString    :: Int -> Ratio BigInt -> Maybe String
+    ,   fromString  :: Int -> String       -> Either String (Ratio BigInt)
+    ,   toString    :: Int -> Ratio BigInt -> Either String String
     }
 
 
@@ -90,7 +90,7 @@ createBasisFunctions digitsArray =
         getPrimeFactors basis = primeFactorsList `index` (basis - 2)
 
         isFinit basis (Ratio _ denominator)
-            | basis >= basisMax = Nothing
+            | basis > basisMax = Nothing
             -- If the denominator can be complete factorized by the primefactors
             -- of the current basis, the non-fractional rendering of the
             -- rational is finit
@@ -102,12 +102,12 @@ createBasisFunctions digitsArray =
                     | number `mod` factor == zero = factorizeMany (number / factor) factor
                     | otherwise                   = number
 
-        fromString' :: Int -> String -> Maybe (Ratio BigInt)
+        fromString' :: Int -> String -> Either String (Ratio BigInt)
         fromString' basis =
             fromString basis <<< fromFoldable <<< String.toCharArray
 
         -- Match possible negative sign, parse remaining string and negate result
-        fromString :: Int -> List Char -> Maybe (Ratio BigInt)
+        fromString :: Int -> List Char -> Either String (Ratio BigInt)
         fromString basis ('-' : string) =
           do
             ratio <- fromString basis string
@@ -122,31 +122,35 @@ createBasisFunctions digitsArray =
                 shift = fromInt $ length string' - point
                 denominator = basisbi `pow` shift
 
-                parseDigits :: List Char -> BigInt -> BigInt -> Maybe BigInt
-                parseDigits Nil            accumulator _        = Just accumulator
+                parseDigits :: List Char -> BigInt -> BigInt -> Either String BigInt
+                parseDigits Nil            accumulator _        = Right accumulator
                 parseDigits (char : chars) accumulator position =
                 -- TODO this is not tail recursive...
                   do
-                    digitValue <- char `elemIndex` digits
+                    digitValue <- note
+                        "Failed to lookup character"
+                        (char `elemIndex` digits)
                     let positionValue   = basisbi `pow` position
                     let delta           = (fromInt digitValue) * positionValue
 
                     parseDigits chars (accumulator + delta) (position + one)
 
-                maybeRatio :: Maybe (Ratio BigInt)
+                maybeRatio :: Either String (Ratio BigInt)
                 maybeRatio =
                   do
                     numerator <- parseDigits (reverse string') zero zero
                     pure $ Ratio numerator denominator
-            | otherwise = Nothing
+            | otherwise = Left "Basis outside valid range"
 
         getPost' = getPost digits
 
-        toString :: Int -> Ratio BigInt -> Maybe String
+        toString :: Int -> Ratio BigInt ->  Either String String
         toString basis ratio@(Ratio numerator denominator)
-            | basis >= basisMax = Nothing
+            | basis > basisMax = Left $ "Basis exceeds " <> show basis
             | otherwise = do
-                finit <- isFinit basis ratio
+                finit <- note
+                    "Failed to check if number is finit in output base"
+                    (isFinit basis ratio)
 
                 -- Seperate the *propper* part of the fraction and the
                 -- *remainder*
@@ -166,7 +170,7 @@ createBasisFunctions digitsArray =
                 -- Calculate a string representation of `dividend` in `basis`
                 stringFromBase :: List Char -- Accumulator for output string
                                -> BigInt    -- Accumulator for number
-                               -> Maybe (List Char)
+                               -> Either String (List Char)
                 stringFromBase cs dividend
                     | dividend >= one = do
                         -- Calculate quotient and remainder of division by
@@ -174,11 +178,15 @@ createBasisFunctions digitsArray =
                         let remainder = dividend `mod` basisbi
                         let quotient = (dividend - remainder) / basisbi
                         -- Get Corresponding digit character
-                        i <- fromNumber <<< toNumber $ remainder
-                        c <- digits `index` i
+                        i <- note
+                            "Failed to convert numbers"
+                            (fromNumber <<< toNumber $ remainder)
+                        c <- note
+                            "Failed to lookup character"
+                            (digits `index` i)
 
                         stringFromBase (c : cs) quotient
-                    | otherwise = Just $ cs
+                    | otherwise = Right cs
 
         basisFunctions =    {   fromString  : fromString'
                             ,   toString    : toString
@@ -253,7 +261,7 @@ getPost
     -> Int                -- Base
     -> Boolean            -- Is the number reccurrent in the base
     -> PseudoFloat        -- Remainder as pseudo float
-    -> Maybe (List Char)  -- Post radix string
+    -> Either String (List Char)  -- Post radix string
 getPost digits basis isFinit pf@(PseudoFloat f0) = loop zero Nil Nil pf
   where
     basisBI = fromInt basis
@@ -264,16 +272,16 @@ getPost digits basis isFinit pf@(PseudoFloat f0) = loop zero Nil Nil pf
         -> List BigInt        -- Intermediate values to check for reccurence
         -> List Char          -- Accumulator for the output string
         -> PseudoFloat        -- Intermediate value
-        -> Maybe (List Char)  -- Output String
+        -> Either String (List Char)  -- Output String
     loop j fs cs (PseudoFloat float)
         -- If the finit part of the pseudo float is zero, then everything has
         -- been expressed in the output string -> Return
-        | float.finit == zero  = Just cs
+        | float.finit == zero  = Right cs
         -- Otherwise, try to express yet more of the intermediate value in
         -- a character in the output base
         | otherwise = case float.finit `elemIndex` fs of
             -- Recurrence -> return with parantheses marking recurrence
-             Just i -> Just $
+             Just i -> Right $
                 take i cs <> (Cons '[' Nil) <> drop i cs <> (Cons ']' Nil)
             -- No recurrence -> calculate next step
              Nothing -> do
@@ -285,8 +293,12 @@ getPost digits basis isFinit pf@(PseudoFloat f0) = loop zero Nil Nil pf
 
                 -- Calculate index *i* and corresponding char *c*
                 let iBI = float''.finit / shift
-                i <- fromNumber $ toNumber iBI
-                c <- digits `index` i
+                i <- note
+                    "Failed to convert numbers"
+                     (fromNumber $ toNumber iBI)
+                c <- note
+                    "Failed to lookup character"
+                    (digits `index` i)
 
                 -- Update finit part according to index *i*
                 let float0'' = float'' {finit = float''.finit - iBI * shift}

@@ -13,6 +13,7 @@ import Data.Maybe
 import Data.BigInt (BigInt (..), fromInt)
 import Data.Ratio (Ratio (..), numerator, denominator)
 import Control.MonadZero (guard)
+import Data.Either (Either (..))
 
 digits :: Array Char
 digits = ['0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F']
@@ -37,48 +38,59 @@ quartets =  [   (Quartet 10 "0" 0 1)
             ,   (Quartet  2 "10" 2 1)
             ,   (Quartet  2 "100" 4 1)
             ,   (Quartet  2 "1101" 13 1)
+            ]
 
-            ,   (Quartet 10 "0.[3]"  1 3)
+quartets' = [   (Quartet 10 "0.[3]"  1 3)
             ,   (Quartet 10 "0.[076923]" 1 13)
-            
+
             ,   (Quartet  2 "1011.00[01]" 133 12)
+
+            ,   (Quartet 12 "2.3[7249]" 23 10)
 
             ,   (Quartet 16 "B2.D[6DB]" 20030 112)
             ,   (Quartet 16 "F01.A" 61466 16)
             ]
 
-testToString :: (Int -> (Ratio BigInt) -> Maybe String) -> Array String
+testToString
+    :: (Int -> (Ratio BigInt) -> Either String String)
+    -> Array String
 testToString toString = do
-    (Quartet basis s n d) <- quartets
-    let operation = "(" <> show n <> " % " <> show d <> ") -> " <> s
+    (Quartet basis s n d) <- quartets <> quartets'
+    let operation = "(" <> show n <> " % " <> show d <> ") in basis " <>
+        show basis <> "-> " <> s
 
     case toString basis (Ratio (fromInt n) (fromInt d)) of
-        Nothing -> pure $ "Operation failed: " <> operation
-        Just string -> do
+        Left error ->
+            pure $ "Operation failed: " <> operation
+                <> " with '" <> error <> "'"
+        Right string -> do
             guard $ string == s
 
             pure $ "Operation failed: " <> operation <>
                 " with result " <> string
 
-testFromString :: (Int -> String -> Maybe (Ratio BigInt)) -> Array String
+testFromString
+    :: (Int -> String -> Either String (Ratio BigInt))
+    -> Array String
 testFromString fromString = do
     (Quartet basis s n d) <- quartets
+    let operation = s <> " in basis " <> show basis <>
+        "-> " <> " /= (" <> show n <> " % " <> show d <> ")"
 
     case fromString basis s of
-        Nothing -> pure "Failed"
-        Just fraction -> do
+        Left error ->
+            pure $ "Operation failed: " <> operation
+                <> " with '" <> error <> "'"
+        Right fraction -> do
             guard $ numerator fraction /= fromInt n || denominator fraction /= fromInt d
 
-            pure $ "Result (" <> (toString $ numerator fraction)
-                <> " % " <> (toString $ denominator fraction) <> ")"
-                <> " parsed " <> s
-                <> " /= (" <> show n <> " % " <> show d <> ")"
+            pure $ "Operation failed: " <> operation <> " with result ("
+                <> (toString $ numerator fraction) <> " % "
+                <> (toString $ denominator fraction) <> ")"
 
 main :: forall e. Eff (console :: CONSOLE | e) Unit
 main = do
   case createBasisFunctions digits of
       Just {fromString, toString, isFinit} ->
-          log <<< show $ testToString toString
-
-
+          log <<< show $ (testToString toString <> testFromString fromString)
       Nothing -> log "Could not create basis functions"

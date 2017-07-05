@@ -15,8 +15,9 @@
     "purescript-math": "2.1.0",
     "purescript-integers": "3.0.0",
     "purescript-rationals" : "herrzinter/purescript-rationals#0f823b39028ab42b1be743ac33bfa695c7c3e9ad",
-    "purescript-generics" : "4.0.0"
-  },
+    "purescript-generics" : "4.0.0",
+    "purescript-errors" : "3.0.0"
+    },
   "devDependencies": {
     "purescript-psci-support": "^3.0.0"
   }
