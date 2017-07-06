@@ -4,6 +4,8 @@ import Basis
 import Data.Maybe
 import Prelude
 
+import Control.Bind ((=<<))
+import Control.Error.Util (note)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE, log)
 import Control.MonadZero (guard)
@@ -13,7 +15,6 @@ import Data.Either (Either(..))
 import Data.Function (($))
 import Data.List (fromFoldable)
 import Data.Ratio (Ratio(..), numerator, denominator)
-import Control.Error.Util (note)
 
 
 
@@ -68,6 +69,43 @@ digits :: Array Char
 digits = ['0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F']
 
 
+pseudoFloatTestArray =
+    [   PseudoFloatTestInt 1 2 5 0 1
+    ,   PseudoFloatTestInt 1 3 0 3 1
+    ]
+
+data PseudoFloatTest
+    = PseudoFloatTestString String String String String Int
+    | PseudoFloatTestInt    Int    Int    Int    Int    Int
+
+
+getPseudoFloatTestVariables (PseudoFloatTestString ns ds fs is s) = do
+    n <- fromString ns
+    d <- fromString ds
+    f <- fromString fs
+    i <- fromString is
+
+    pure $ {n, d, f, i, s}
+getPseudoFloatTestVariables (PseudoFloatTestInt n d f i s) = do
+    pure $ {n : fromInt n, d : fromInt d, f : fromInt f, i : fromInt i, s : s}
+
+testPseudoFloats = do
+    pseudoFloatTest <- pseudoFloatTestArray
+
+    case getPseudoFloatTestVariables pseudoFloatTest of
+        Nothing               -> pure "Failed get pesudo float test variables"
+        Just {n, d, f, i, s}  -> do
+            let (PseudoFloat pf) = pseudoFloatFromRatio (Ratio n d)
+
+            guard $ pf.finit /= f || pf.infinit /= i || pf.shift /= s
+
+            pure $ "Creating PseudoFloat failed with ("
+                <> " f: " <> toString pf.finit    <> " vs " <> toString f
+                <> " i: " <> toString pf.infinit  <> " vs " <> toString i
+                <> " s: " <> show pf.shift        <> " vs " <> show s
+                <> ")"
+
+
 testToString
     :: (Int -> (Ratio BigInt) -> Either String String)
     -> Array String
@@ -118,6 +156,6 @@ main :: forall e. Eff (console :: CONSOLE | e) Unit
 main = do
   case createBasisFunctions digits of
       Just {fromString, toString, isFinit} -> do
-          let tests = testToString toString <> testFromString fromString
+          let tests = testToString toString <> testFromString fromString <> testPseudoFloats
           log $ foldl (\a s -> a <> "\n" <> s) "" tests
       Nothing -> log "Could not create basis functions"
