@@ -11,7 +11,7 @@ import Data.EuclideanRing (class EuclideanRing)
 import Data.Foldable (any, foldl, foldr)
 import Data.Function ((#))
 import Data.Int (fromNumber)
-import Data.List (List(..), findIndex, take, drop, elemIndex, filter, fromFoldable, index, length, reverse, slice, snoc, toUnfoldable, (..), (:))
+import Data.List (List(..), findIndex, take, drop, elemIndex, filter, fromFoldable, index, length, reverse, slice, init, tail, last, head, snoc, toUnfoldable, (..), (:))
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Ratio (Ratio(..), denominator, numerator)
 import Data.String as String
@@ -163,8 +163,10 @@ createBasisFunctions digitsArray =
                 let string = pre <> (Cons '.' Nil) <> post
 
                 -- TODO Alter string for display
+                string' <- note "String is empty" (cleanString string)
 
-                pure <<< String.fromCharArray <<< toUnfoldable $ string
+
+                pure <<< String.fromCharArray <<< toUnfoldable $ string'
               where
                 basisbi = fromInt basis
                 -- Calculate a string representation of `dividend` in `basis`
@@ -187,6 +189,16 @@ createBasisFunctions digitsArray =
 
                         stringFromBase (c : cs) quotient
                     | otherwise = Right cs
+
+                cleanString string = do
+                    p <- '.' `elemIndex` string
+                    let len = length string
+                    
+                    case Nothing of
+                        _ | p == zero && len == one -> Just $ Cons '0' Nil
+                        _ | p == zero               -> Just $ '0' : string
+                          | p == len - one          -> init string
+                          | otherwise               -> Just string
 
         basisFunctions =    {   fromString  : fromString'
                             ,   toString    : toString
