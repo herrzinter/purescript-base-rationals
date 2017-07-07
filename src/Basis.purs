@@ -193,7 +193,7 @@ createBasisFunctions digitsArray =
                 cleanString string = do
                     p <- '.' `elemIndex` string
                     let len = length string
-                    
+
                     case Nothing of
                         _ | p == zero && len == one -> Just $ Cons '0' Nil
                         _ | p == zero               -> Just $ '0' : string
@@ -231,7 +231,7 @@ instance showPseudoFloat :: Show PseudoFloat where
         <> ", shift : " <> (show dr.shift) <> "}"
 
 pseudoFloatFromRatio :: Ratio BigInt -> PseudoFloat
-pseudoFloatFromRatio (Ratio numerator denominator) = divide (numerator * ten) Nil Nil zero
+pseudoFloatFromRatio (Ratio numerator denominator) = divide numerator Nil Nil (-one)
   where
     divide :: BigInt       -- Current divident
            -> List BigInt  -- List of previous dividents
@@ -249,13 +249,10 @@ pseudoFloatFromRatio (Ratio numerator denominator) = divide (numerator * ten) Ni
                 -- In case of recurrence, return the result, otherwise, divide
                 -- the remaining numerator further
                 Just i_infinit ->
-                    let infinit = bigIntFromCharList (drop i_infinit quotients)
-                        finit = bigIntFromCharList quotients - infinit
-                    in  PseudoFloat
-                        {   finit   : finit
-                        ,   infinit : infinit
-                        ,   shift   : counter
-                        }
+                    let i_drop  = length quotients - i_infinit - one
+                        infinit = bigIntFromCharList $ drop i_drop quotients
+                        finit   = bigIntFromCharList quotients - infinit
+                    in  PseudoFloat {finit, infinit, shift : counter}
                 Nothing ->
                     divide dividend' previousDividends' quotients' counter'
                       where
@@ -264,7 +261,7 @@ pseudoFloatFromRatio (Ratio numerator denominator) = divide (numerator * ten) Ni
                         -- Factorize by the current denominator, and save the
                         -- factor to the string of quotients
                         factor = charListFromBigInt $ dividend / denominator
-                        quotients' = foldr (:) quotients (reverse factor)
+                        quotients' = quotients <> factor
                         dividend' = (dividend `mod` denominator) * ten
 
 
