@@ -9,7 +9,7 @@ import Control.Error.Util (note)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE, log)
 import Control.MonadZero (guard)
-import Data.Array (concat, foldl)
+import Data.Array (concat, foldl, (..))
 import Data.BigInt (BigInt(..), fromInt, fromString, toString)
 import Data.Either (Either(..))
 import Data.Function (($))
@@ -72,6 +72,13 @@ digits = ['0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F']
 pseudoFloatTestArray =
     [   PseudoFloatTestInt 1 2 5 0 1
     ,   PseudoFloatTestInt 1 3 0 3 1
+    ,   PseudoFloatTestInt 89701389 100000 89701389 0 5
+    ,   PseudoFloatTestInt 1 100 1 0 2
+    ,   PseudoFloatTestInt 1230 10 123 0 0
+    ,   PseudoFloatTestInt 5 11 0 45 2
+    ,   PseudoFloatTestInt 10000 10 1000 0 0
+    ,   PseudoFloatTestString "123189" "35" "35196000000" "857142" 7
+    ,   PseudoFloatTestString "89701389" "35" "25628968000000" "285714" 7
     ]
 
 data PseudoFloatTest
