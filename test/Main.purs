@@ -106,10 +106,44 @@ testPseudoFloats = do
 
             guard $ pf.finit /= f || pf.infinit /= i || pf.shift /= s
 
-            pure $ "Creating PseudoFloat failed with ("
+            pure $ "Scaling PseudoFloat failed ("
                 <> " f: " <> toString pf.finit    <> " vs " <> toString f
                 <> " i: " <> toString pf.infinit  <> " vs " <> toString i
                 <> " s: " <> show pf.shift        <> " vs " <> show s
+                <> ")"
+
+
+pseudoFloatScalingTestArray =
+    [   PseudoFloatScalingTestInt 0 0 0     0 0 0     30493
+    ,   PseudoFloatScalingTestInt 7891 0 0  0 0 9189  72510399
+    ]
+
+data PseudoFloatScalingTest
+    = PseudoFloatScalingTestInt Int Int Int Int Int Int Int
+
+getPseudoFloatScalingTestVariables :: PseudoFloatScalingTest -> Maybe {pf1::PseudoFloat, pf2::PseudoFloat, scale::BigInt}
+getPseudoFloatScalingTestVariables (PseudoFloatScalingTestInt f1 i1 s1 f2 i2 s2 scale') = do
+        let pf1 = PseudoFloat {finit : fromInt f1, infinit : fromInt i1, shift : s1}
+        let pf2 = PseudoFloat {finit : fromInt f2, infinit : fromInt i2, shift : s2}
+        let scale = fromInt scale'
+        pure $ {pf1, pf2, scale}
+
+
+testPseudoFloatsScaling = do
+    pseudoFloatTest <- pseudoFloatScalingTestArray
+
+    case getPseudoFloatScalingTestVariables pseudoFloatTest of
+        Nothing                 -> pure "Failed get pesudo float test variables"
+        Just {pf1:(PseudoFloat pf1), pf2:(PseudoFloat pf2), scale}  -> do
+            let (PseudoFloat pf1') = scalePseudoFloat (PseudoFloat pf1) scale
+
+            guard $ pf2.finit /= pf1'.finit || pf2.infinit /= pf1'.infinit || pf2.shift /= pf1'.shift
+
+            pure $ "Creating PseudoFloat failed with ("
+                <> " f: " <> toString pf2.finit    <> " vs " <> toString pf1'.finit
+                <> " i: " <> toString pf2.infinit  <> " vs " <> toString pf1'.infinit
+                <> " s: " <> show pf2.shift        <> " vs " <> show pf1'.shift
+                <> " for scaling: " <> toString scale
                 <> ")"
 
 
@@ -163,6 +197,9 @@ main :: forall e. Eff (console :: CONSOLE | e) Unit
 main = do
   case createBasisFunctions digits of
       Just {fromString, toString, isFinit} -> do
-          let tests = testToString toString <> testFromString fromString <> testPseudoFloats
+          let tests = testPseudoFloats
+                    <> testPseudoFloatsScaling
+                    -- <> testToString toString
+                    -- <> testFromString fromString
           log $ foldl (\a s -> a <> "\n" <> s) "" tests
       Nothing -> log "Could not create basis functions"
