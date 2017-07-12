@@ -355,7 +355,7 @@ scalePseudoFloat pseudoFloat@(PseudoFloat pseudoFloatRec) factor
         | otherwise = infinit
 
 isRecurring :: PseudoFloat -> Boolean
-isRecurring (PseudoFloat pseudoFloatRec) = pseudoFloatRec.infinit == zero
+isRecurring (PseudoFloat pseudoFloatRec) = pseudoFloatRec.infinit /= zero
 
 countDigits :: BigInt -> BigInt
 countDigits = fromInt <<< String.length <<< toString
