@@ -290,8 +290,11 @@ getPost digits basis isFinit pf@(PseudoFloat f0) = loop zero Nil Nil pf
         -- a character in the output base
         | otherwise = case float.finit `elemIndex` fs of
             -- Recurrence -> return with parantheses marking recurrence
-             Just i -> Right $
-                take i cs <> (Cons '[' Nil) <> drop i cs <> (Cons ']' Nil)
+             Just i ->
+              let
+                i_drop  = length fs - i - one
+              in
+                Right $ take i_drop cs <> (Cons '[' Nil) <> drop i_drop cs <> (Cons ']' Nil)
             -- No recurrence -> calculate next step
              Nothing -> do
                 -- Update float based on calculations with the infinit part
