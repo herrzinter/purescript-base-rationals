@@ -114,8 +114,13 @@ testPseudoFloats = do
 
 
 pseudoFloatScalingTestArray =
-    [   PseudoFloatScalingTestInt 0 0 0     0 0 0     30493
-    ,   PseudoFloatScalingTestInt 7891 0 0  0 0 9189  72510399
+    [   PseudoFloatScalingTestInt 0 0 0        0 0 0            30493
+    ,   PseudoFloatScalingTestInt 7891 0 0     72510399 0 0     9189
+    ,   PseudoFloatScalingTestInt 120 1 1      1080 9 1         9
+    ,   PseudoFloatScalingTestInt 0 1 5        0 1 3            100
+    ,   PseudoFloatScalingTestInt 0 12 2       0 36 2           3
+    ,   PseudoFloatScalingTestInt 0 45 2       100 36 2         3
+    ,   PseudoFloatScalingTestInt 57000 819 7  520436000 198 7  9001
     ]
 
 data PseudoFloatScalingTest
@@ -199,7 +204,7 @@ main = do
       Just {fromString, toString, isFinit} -> do
           let tests = testPseudoFloats
                     <> testPseudoFloatsScaling
-                    -- <> testToString toString
-                    -- <> testFromString fromString
+                    <> testToString toString
+                    <> testFromString fromString
           log $ foldl (\a s -> a <> "\n" <> s) "" tests
       Nothing -> log "Could not create basis functions"

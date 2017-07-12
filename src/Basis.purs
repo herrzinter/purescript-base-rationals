@@ -223,6 +223,7 @@ createBasisFunctions digitsArray =
 ten = fromInt 10 :: BigInt
 
 
+
 -- TODO more usefull default
 bigIntFromCharList :: List Char -> BigInt
 bigIntFromCharList = (fromMaybe zero) <<< fromString <<< String.fromCharArray <<< toUnfoldable
@@ -230,6 +231,12 @@ bigIntFromCharList = (fromMaybe zero) <<< fromString <<< String.fromCharArray <<
 charListFromBigInt :: BigInt -> List Char
 charListFromBigInt = fromFoldable <<< String.toCharArray <<< toString
 
+
+pfFromInt finit infinit shift = PseudoFloat
+    {   finit   : fromInt finit
+    ,   infinit : fromInt infinit
+    ,   shift   : shift
+    }
 
 data PseudoFloat = PseudoFloat
     {   finit   :: BigInt
@@ -335,41 +342,56 @@ scalePseudoFloat
     :: PseudoFloat  -- Input
     -> BigInt       -- Scaling factor
     -> PseudoFloat  -- Output
-scalePseudoFloat pseudoFloat@(PseudoFloat pseudoFloatRec) factor
-    | not $ isRecurring pseudoFloat = PseudoFloat
-        pseudoFloatRec {finit = pseudoFloatRec.finit * factor}
-    | otherwise = PseudoFloat
-        pseudoFloatRec   {   finit   = pseudoFloatRec.finit * factor + carry
-                         ,   infinit = infinit'' - carry * infinitShift
-                         }
+scalePseudoFloat pseudoFloat@(PseudoFloat pfr) factor
+    | not $ isRecurring pseudoFloat = PseudoFloat pfr {finit = pfr.finit * factor}
+    | otherwise               = PseudoFloat
+        pfr   {   finit   = finit
+              ,   infinit = infinit
+              }
   where
-    -- Calculate the new infinit part, and the carry for the finit part
-    -- by multiplying (possibly multiple times) the infinit part with
-    -- the factor.
-    -- First, the finit and infinit part are multiplied by the factor. If
-    -- the number is infinetly recurring, the carry from the infinet
-    -- recurrence are calculated. In order to do so, it is estimated, how
-    -- many digits the carry is long and thus, how many recurrences
-    -- influence the *last* infinit part, and the finit part.
-    -- Eg.: If the recurrence is '91' and it is multiplied by factor '10000',
-    -- then the new value is '9100000' which is 5 digits longer then the
-    -- recurrence. Thus, one has to take into account the carries from 3
-    -- previous infinit parts. This is done in the *loop* function.
+    l = (countDigits pfr.infinit)
 
-    numberOfInfinitDigits = countDigits pseudoFloatRec.infinit
-    infinit' = pseudoFloatRec.infinit * factor
-    numberOfInfinitDigits' = countDigits infinit'
+    splitRecurrence :: BigInt -> Maybe {finit :: BigInt, infinit :: BigInt}
+    splitRecurrence int = do
+      let chars = reverse $ charListFromBigInt int
+      infinitChars <- loop' chars Nil Nil
 
-    infinit'' = loop numberOfInfinitDigits infinit'
-    infinitShift = ten `pow` numberOfInfinitDigits
-    carry = infinit'' / infinitShift
+      let finit' = bigIntFromCharList <<< reverse $ drop (length infinitChars * 2) chars
+      let finit = finit' * ten `pow` (fromInt $ length infinitChars)
+      let infinit = bigIntFromCharList $ reverse infinitChars
 
-    loop i infinit
-        | i < numberOfInfinitDigits' =
-            loop
-                (i + numberOfInfinitDigits)
-                (infinit + pseudoFloatRec.infinit / (ten `pow` i))
-        | otherwise = infinit
+      pure {finit, infinit}
+
+      where
+        loop' (c : cs) acc can = loop' cs acc' can'
+          where
+            acc' = acc `snoc` c
+            can' = if cs `startswith` acc' then acc' else can
+        loop' _        _   Nil = Nothing
+        loop' _        _   can = Just can
+
+    loop v n =
+      let
+        v' = v `shiftLeft` l + pfr.infinit * factor
+      in
+        if    v' `shiftRight` (l * n) == v `shiftRight` (l * (n - one))
+        then  v' `shiftRight` (l * n)
+        else  loop v' (n + one)
+
+    v0 = ((pfr.finit + pfr.infinit) * factor) `shiftLeft` l + pfr.infinit * factor
+
+    v'' = loop v0 one
+
+    {finit, infinit} = fromMaybe {finit:zero, infinit:zero} (splitRecurrence v'')
+
+shiftRight a b = a / (ten `pow` b)
+shiftLeft a b  = a * (ten `pow` b)
+
+startswith :: (List Char) -> List Char -> Boolean
+startswith (c1 : cs1) (c2 : cs2) | c1 == c2   = startswith cs1 cs2
+                                 | otherwise  = false
+startswith _          Nil                     = true
+startswith Nil        _                       = false
 
 isRecurring :: PseudoFloat -> Boolean
 isRecurring (PseudoFloat pseudoFloatRec) = pseudoFloatRec.infinit /= zero
