@@ -17,8 +17,22 @@ import Data.Ratio (Ratio(..), denominator, numerator)
 import Data.String as String
 import Data.Either (Either (..))
 import Control.Error.Util (note)
+import Control.Monad.Rec.Class (Step (..), tailRec, tailRecM, tailRecM2, class MonadRec)
 
 two = one + one
+
+
+tailRecM4
+  :: forall m a b c d e
+   . MonadRec m
+  => (a -> b -> c -> d -> m (Step { a :: a, b :: b, c :: c, d :: d } e))
+  -> a
+  -> b
+  -> c
+  -> d
+  -> m e
+tailRecM4 f a b c d = tailRecM (\o -> f o.a o.b o.c o.d) { a, b, c, d}
+
 
 
 -- | Factorize a member of an euclidian ring by a list of factors
@@ -271,7 +285,7 @@ getPost
     -> Boolean            -- Is the number reccurrent in the base
     -> PseudoFloat        -- Remainder as pseudo float
     -> Either String (List Char)  -- Post radix string
-getPost digits basis isFinit pf@(PseudoFloat f0) = loop zero Nil Nil pf
+getPost digits basis isFinit pf@(PseudoFloat f0) = tailRecM4 loop zero Nil Nil pf
   where
     basisBI = fromInt basis
     shift = ten `pow` (fromInt f0.shift)
@@ -281,11 +295,11 @@ getPost digits basis isFinit pf@(PseudoFloat f0) = loop zero Nil Nil pf
         -> List BigInt        -- Intermediate values to check for reccurence
         -> List Char          -- Accumulator for the output string
         -> PseudoFloat        -- Intermediate value
-        -> Either String (List Char)  -- Output String
+        -> Either String (Step {a::BigInt, b::(List BigInt), c::(List Char), d::(PseudoFloat)} (List Char))  -- Output String
     loop j fs cs (PseudoFloat float)
         -- If the finit part of the pseudo float is zero, then everything has
         -- been expressed in the output string -> Return
-        | float.finit == zero  = Right cs
+        | float.finit == zero  = Right $ Done cs
         -- Otherwise, try to express yet more of the intermediate value in
         -- a character in the output base
         | otherwise = case float.finit `elemIndex` fs of
@@ -294,7 +308,7 @@ getPost digits basis isFinit pf@(PseudoFloat f0) = loop zero Nil Nil pf
               let
                 i_drop  = length fs - i - one
               in
-                Right $ take i_drop cs <> (Cons '[' Nil) <> drop i_drop cs <> (Cons ']' Nil)
+                Right $ Done $ take i_drop cs <> (Cons '[' Nil) <> drop i_drop cs <> (Cons ']' Nil)
             -- No recurrence -> calculate next step
              Nothing -> do
                 -- Update float based on calculations with the infinit part
@@ -315,7 +329,7 @@ getPost digits basis isFinit pf@(PseudoFloat f0) = loop zero Nil Nil pf
                 -- Update finit part according to index *i*
                 let float0'' = float'' {finit = float''.finit - iBI * shift}
 
-                loop (j + one) (float.finit : fs) (c : cs) (PseudoFloat float0'')
+                pure $ Loop $ {a: (j + one), b: (float.finit : fs), c: (c : cs), d: (PseudoFloat float0'')}
 
 scalePseudoFloat
     :: PseudoFloat  -- Input
