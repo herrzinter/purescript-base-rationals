@@ -16,6 +16,7 @@ import Data.Function (($))
 import Data.List (fromFoldable)
 import Data.Ratio (Ratio(..), numerator, denominator)
 
+import PreciseFloat (PreciseFloat (..), scale, fromRatio)
 
 
 data Quartet = QuartetInt     Int String Int    Int
@@ -69,87 +70,89 @@ digits :: Array Char
 digits = ['0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F']
 
 
-pseudoFloatTestArray =
-    [   PseudoFloatTestInt 1 2 5 0 1
-    ,   PseudoFloatTestInt 1 3 0 3 1
-    ,   PseudoFloatTestInt 89701389 100000 89701389 0 5
-    ,   PseudoFloatTestInt 1 100 1 0 2
-    ,   PseudoFloatTestInt 1230 10 123 0 0
-    ,   PseudoFloatTestInt 5 11 0 45 2
-    ,   PseudoFloatTestInt 10000 10 1000 0 0
-    ,   PseudoFloatTestString "123189" "35" "35196000000" "857142" 7
-    ,   PseudoFloatTestString "89701389" "35" "25628968000000" "285714" 7
+preciseFloatTestArray =
+    [   PreciseFloatTestInt 1 2 5 0 1
+    ,   PreciseFloatTestInt 1 3 0 3 1
+    ,   PreciseFloatTestInt 89701389 100000 89701389 0 5
+    ,   PreciseFloatTestInt 1 100 1 0 2
+    ,   PreciseFloatTestInt 1230 10 123 0 0
+    ,   PreciseFloatTestInt 5 11 0 45 2
+    ,   PreciseFloatTestInt 10000 10 1000 0 0
+    ,   PreciseFloatTestString "123189" "35" "35196000000" "857142" 7
+    ,   PreciseFloatTestString "89701389" "35" "25628968000000" "285714" 7
     ]
 
-data PseudoFloatTest
-    = PseudoFloatTestString String String String String Int
-    | PseudoFloatTestInt    Int    Int    Int    Int    Int
+data PreciseFloatTest
+    = PreciseFloatTestString String String String String Int
+    | PreciseFloatTestInt    Int    Int    Int    Int    Int
 
 
-getPseudoFloatTestVariables (PseudoFloatTestString ns ds fs is s) = do
+getPreciseFloatTestVariables (PreciseFloatTestString ns ds fs is s) = do
     n <- fromString ns
     d <- fromString ds
     f <- fromString fs
     i <- fromString is
 
     pure $ {n, d, f, i, s}
-getPseudoFloatTestVariables (PseudoFloatTestInt n d f i s) = do
+getPreciseFloatTestVariables (PreciseFloatTestInt n d f i s) = do
     pure $ {n : fromInt n, d : fromInt d, f : fromInt f, i : fromInt i, s : s}
 
-testPseudoFloats = do
-    pseudoFloatTest <- pseudoFloatTestArray
+testPreciseFloats = do
+    preciseFloatTest <- preciseFloatTestArray
 
-    case getPseudoFloatTestVariables pseudoFloatTest of
+    case getPreciseFloatTestVariables preciseFloatTest of
         Nothing               -> pure "Failed get pesudo float test variables"
         Just {n, d, f, i, s}  -> do
-            let (PseudoFloat pf) = pseudoFloatFromRatio (Ratio n d)
+            let (PreciseFloat pf) = fromRatio (Ratio n d)
 
             guard $ pf.finit /= f || pf.infinit /= i || pf.shift /= s
 
-            pure $ "Scaling PseudoFloat failed ("
+            pure $ "Scaling PreciseFloat failed ("
                 <> " f: " <> toString pf.finit    <> " vs " <> toString f
                 <> " i: " <> toString pf.infinit  <> " vs " <> toString i
                 <> " s: " <> show pf.shift        <> " vs " <> show s
                 <> ")"
 
 
-pseudoFloatScalingTestArray =
-    [   PseudoFloatScalingTestInt 0 0 0        0 0 0            30493
-    ,   PseudoFloatScalingTestInt 7891 0 0     72510399 0 0     9189
-    ,   PseudoFloatScalingTestInt 120 1 1      1080 9 1         9
-    ,   PseudoFloatScalingTestInt 0 1 5        0 1 3            100
-    ,   PseudoFloatScalingTestInt 0 12 2       0 36 2           3
-    ,   PseudoFloatScalingTestInt 0 45 2       100 36 2         3
-    ,   PseudoFloatScalingTestInt 57000 819 7  520436000 198 7  9001
+preciseFloatScalingTestArray =
+    [   PreciseFloatScalingTestInt 0 0 0        0 0 0            30493
+    ,   PreciseFloatScalingTestInt 7891 0 0     72510399 0 0     9189
+    ,   PreciseFloatScalingTestInt 120 1 1      1080 9 1         9
+    ,   PreciseFloatScalingTestInt 0 1 5        0 1 3            100
+    ,   PreciseFloatScalingTestInt 0 12 2       0 36 2           3
+    ,   PreciseFloatScalingTestInt 0 45 2       100 36 2         3
+    ,   PreciseFloatScalingTestInt 57000 819 7  520436000 198 7  9001
     ]
 
-data PseudoFloatScalingTest
-    = PseudoFloatScalingTestInt Int Int Int Int Int Int Int
+data PreciseFloatScalingTest
+    = PreciseFloatScalingTestInt Int Int Int Int Int Int Int
 
-getPseudoFloatScalingTestVariables :: PseudoFloatScalingTest -> Maybe {pf1::PseudoFloat, pf2::PseudoFloat, scale::BigInt}
-getPseudoFloatScalingTestVariables (PseudoFloatScalingTestInt f1 i1 s1 f2 i2 s2 scale') = do
-        let pf1 = PseudoFloat {finit : fromInt f1, infinit : fromInt i1, shift : s1}
-        let pf2 = PseudoFloat {finit : fromInt f2, infinit : fromInt i2, shift : s2}
-        let scale = fromInt scale'
-        pure $ {pf1, pf2, scale}
+getPreciseFloatScalingTestVariables :: PreciseFloatScalingTest -> Maybe {pf1::PreciseFloat, pf2::PreciseFloat, factor::BigInt}
+getPreciseFloatScalingTestVariables (PreciseFloatScalingTestInt f1 i1 s1 f2 i2 s2 factor') = do
+        let pf1 = PreciseFloat {finit : fromInt f1, infinit : fromInt i1, shift : s1}
+        let pf2 = PreciseFloat {finit : fromInt f2, infinit : fromInt i2, shift : s2}
+        let factor = fromInt factor'
+        pure $ {pf1, pf2, factor}
 
 
-testPseudoFloatsScaling = do
-    pseudoFloatTest <- pseudoFloatScalingTestArray
+testPreciseFloatsScaling = do
+    preciseFloatTest <- preciseFloatScalingTestArray
 
-    case getPseudoFloatScalingTestVariables pseudoFloatTest of
+    case getPreciseFloatScalingTestVariables preciseFloatTest of
         Nothing                 -> pure "Failed get pesudo float test variables"
-        Just {pf1:(PseudoFloat pf1), pf2:(PseudoFloat pf2), scale}  -> do
-            let (PseudoFloat pf1') = scalePseudoFloat (PseudoFloat pf1) scale
+        Just {pf1:(PreciseFloat pf1), pf2:(PreciseFloat pf2), factor}  -> do
+            case (PreciseFloat pf1) `scale` factor of
+                Left e -> pure e
+                Right (PreciseFloat pf1') -> do
 
-            guard $ pf2.finit /= pf1'.finit || pf2.infinit /= pf1'.infinit || pf2.shift /= pf1'.shift
+                    guard $ pf2.finit /= pf1'.finit || pf2.infinit /= pf1'.infinit || pf2.shift /= pf1'.shift
 
-            pure $ "Creating PseudoFloat failed with ("
-                <> " f: " <> toString pf2.finit    <> " vs " <> toString pf1'.finit
-                <> " i: " <> toString pf2.infinit  <> " vs " <> toString pf1'.infinit
-                <> " s: " <> show pf2.shift        <> " vs " <> show pf1'.shift
-                <> " for scaling: " <> toString scale
-                <> ")"
+                    pure $ "Creating PreciseFloat failed with ("
+                        <> " f: " <> toString pf2.finit    <> " vs " <> toString pf1'.finit
+                        <> " i: " <> toString pf2.infinit  <> " vs " <> toString pf1'.infinit
+                        <> " s: " <> show pf2.shift        <> " vs " <> show pf1'.shift
+                        <> " for scaling: " <> toString factor
+                        <> ")"
 
 
 testToString
@@ -202,8 +205,8 @@ main :: forall e. Eff (console :: CONSOLE | e) Unit
 main = do
   case createBasisFunctions digits of
       Just {fromString, toString, isFinit} -> do
-          let tests = testPseudoFloats
-                    <> testPseudoFloatsScaling
+          let tests = testPreciseFloats
+                    <> testPreciseFloatsScaling
                     <> testToString toString
                     <> testFromString fromString
           log $ foldl (\a s -> a <> "\n" <> s) "" tests

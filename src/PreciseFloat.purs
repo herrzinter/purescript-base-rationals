@@ -1,11 +1,12 @@
-module Precise where
+module PreciseFloat where
 
 
 import Prelude
 import Data.String as String
 import Data.Array as Array
+import Data.BigInt as BI
 
-import Data.BigInt (BigInt(..), fromInt, fromString, pow, toString)
+import Data.BigInt (BigInt(..), fromString, pow, toString)
 import Data.Ratio (Ratio(..), denominator, numerator)
 import Data.List (List(..), elemIndex, drop, dropWhile, length, reverse, snoc, (:))
 import Data.Maybe (Maybe(..), fromMaybe)
@@ -13,34 +14,32 @@ import Data.Either (Either (..))
 import Control.Error.Util (note)
 
 
-data PseudoFloat = PseudoFloat
+data PreciseFloat = PreciseFloat
     {   finit   :: BigInt
     ,   infinit :: BigInt
     ,   shift   :: Int
     }
 
-pfFromInt finit infinit shift = PseudoFloat
-    {   finit   : fromInt finit
-    ,   infinit : fromInt infinit
-    ,   shift   : shift
-    }
+fromInt :: Int -> Int -> Int -> PreciseFloat
+fromInt finit infinit shift =
+    PreciseFloat {finit : BI.fromInt finit, infinit : BI.fromInt infinit, shift}
 
-instance showPseudoFloat :: Show PseudoFloat where
-    show (PseudoFloat dr) =
+instance showPreciseFloat :: Show PreciseFloat where
+    show (PreciseFloat dr) =
         "{finit : " <> toString dr.finit
         <> ", infinit : " <> toString dr.infinit
         <> ", shift : " <> show dr.shift <> "}"
 
-fromRatio :: Ratio BigInt -> PseudoFloat
+fromRatio :: Ratio BigInt -> PreciseFloat
 fromRatio (Ratio numerator denominator) = loop numerator Nil Nil (-one)
   where
-    loop :: BigInt       -- Current divident
-           -> List BigInt  -- List of previous dividents
-           -> List Char    -- List of whole quotients
-           -> Int          -- Counter
-           -> PseudoFloat
+    loop :: BigInt     -- Current divident
+       -> List BigInt  -- List of previous dividents
+       -> List Char    -- List of whole quotients
+       -> Int          -- Counter
+       -> PreciseFloat
     loop dividend previousDividends quotients counter
-        | dividend == zero = PseudoFloat
+        | dividend == zero = PreciseFloat
             {   finit   : fromCharList quotients
             ,   infinit : zero
             ,   shift   : counter
@@ -53,7 +52,7 @@ fromRatio (Ratio numerator denominator) = loop numerator Nil Nil (-one)
                     let i_drop  = length quotients - i_infinit - one
                         infinit = fromCharList $ drop i_drop quotients
                         finit   = fromCharList quotients - infinit
-                    in  PseudoFloat {finit, infinit, shift : counter}
+                    in  PreciseFloat {finit, infinit, shift : counter}
                 Nothing ->
                     loop dividend' previousDividends' quotients' counter'
                       where
@@ -66,15 +65,16 @@ fromRatio (Ratio numerator denominator) = loop numerator Nil Nil (-one)
                         dividend' = (dividend `mod` denominator) * ten
 
 
-isRecurring :: PseudoFloat -> Boolean
-isRecurring (PseudoFloat pseudoFloatRec) = pseudoFloatRec.infinit /= zero
+isRecurring :: PreciseFloat -> Boolean
+isRecurring (PreciseFloat pfr) = pfr.infinit /= zero
 
 scale
-    :: PseudoFloat                -- Input
-    -> BigInt                     -- Scaling factor
-    -> Either String PseudoFloat  -- Output
-scale pf@(PseudoFloat pfr) factor
-    | not $ isRecurring pf = pure $ PseudoFloat pfr {finit = pfr.finit * factor}
+    :: PreciseFloat                -- Input
+    -> BigInt                      -- Scaling factor
+    -> Either String PreciseFloat  -- Output
+scale pf@(PreciseFloat pfr) factor
+    | not $ isRecurring pf = do
+        pure $ PreciseFloat pfr {finit = pfr.finit * factor}
     | otherwise            = do
         let {factor', shift'} = splitShift factor pfr.shift
 
@@ -82,7 +82,7 @@ scale pf@(PseudoFloat pfr) factor
 
         {finit, infinit} <- note "No recurrence" (splitTrailingRecurrence value)
 
-        pure $ PseudoFloat {finit, infinit, shift : shift'}
+        pure $ PreciseFloat {finit, infinit, shift : shift'}
 
 
 -- Helpers
@@ -101,7 +101,7 @@ scaleUntilRecurring finit infinit factor = loop one v0
         val' = val `shiftLeft` l + infinit * factor
 
 -- Remove tailing zeros of *factor* and adjust *shift*. These zeros
--- only change the *shift* of the *PseudoFloat*, but are not captured
+-- only change the *shift* of the *PreciseFloat*, but are not captured
 -- by the rest of the algorithm, so they're removed up front
 splitShift :: BigInt -> Int -> {factor' :: BigInt, shift' :: Int}
 splitShift factor shift = {factor', shift'}
@@ -119,7 +119,7 @@ splitTrailingRecurrence int = do
     infinitChars <- loop chars Nil Nil
 
     let finit' = fromCharList <<< reverse $ drop (length infinitChars * 2) chars
-    let finit = finit' * ten `pow` (fromInt $ length infinitChars)
+    let finit = finit' * ten `pow` (BI.fromInt $ length infinitChars)
     let infinit = fromCharList $ reverse infinitChars
 
     pure {finit, infinit}
@@ -146,9 +146,9 @@ startswith _          Nil                     = true
 startswith Nil        _                       = false
 
 countDigits :: BigInt -> BigInt
-countDigits = fromInt <<< String.length <<< toString
+countDigits = BI.fromInt <<< String.length <<< toString
 
-ten = fromInt 10 :: BigInt
+ten = BI.fromInt 10 :: BigInt
 
 
 -- TODO more usefull default

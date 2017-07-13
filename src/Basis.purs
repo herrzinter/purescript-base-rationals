@@ -18,7 +18,7 @@ import Data.Either (Either (..))
 import Control.Error.Util (note)
 import Control.Monad.Rec.Class (Step (..), tailRec, tailRecM, tailRecM2, class MonadRec)
 
-import Precise
+import PreciseFloat
 
 
 two = one + one
@@ -226,9 +226,9 @@ getPost
     :: List Char          -- Digits
     -> Int                -- Base
     -> Boolean            -- Is the number reccurrent in the base
-    -> PseudoFloat        -- Remainder as pseudo float
+    -> PreciseFloat        -- Remainder as precise float
     -> Either String (List Char)  -- Post radix string
-getPost digits basis isFinit pf@(PseudoFloat f0) = tailRecM4 loop zero Nil Nil pf
+getPost digits basis isFinit pf@(PreciseFloat f0) = tailRecM4 loop zero Nil Nil pf
   where
     basisBI = fromInt basis
     shift = ten `pow` (fromInt f0.shift)
@@ -237,10 +237,10 @@ getPost digits basis isFinit pf@(PseudoFloat f0) = tailRecM4 loop zero Nil Nil p
         :: BigInt             -- Counter
         -> List BigInt        -- Intermediate values to check for reccurence
         -> List Char          -- Accumulator for the output string
-        -> PseudoFloat        -- Intermediate value
-        -> Either String (Step {a::BigInt, b::(List BigInt), c::(List Char), d::(PseudoFloat)} (List Char))  -- Output String
-    loop j fs cs (PseudoFloat float)
-        -- If the finit part of the pseudo float is zero, then everything has
+        -> PreciseFloat        -- Intermediate value
+        -> Either String (Step {a::BigInt, b::(List BigInt), c::(List Char), d::(PreciseFloat)} (List Char))  -- Output String
+    loop j fs cs (PreciseFloat float)
+        -- If the finit part of the precise float is zero, then everything has
         -- been expressed in the output string -> Return
         | float.finit == zero  = Right $ Done cs
         -- Otherwise, try to express yet more of the intermediate value in
@@ -255,7 +255,7 @@ getPost digits basis isFinit pf@(PseudoFloat f0) = tailRecM4 loop zero Nil Nil p
             -- No recurrence -> calculate next step
              Nothing -> do
                 -- Update float based on calculations with the infinit part
-                (PseudoFloat float') <- (PseudoFloat float) `scale` basisBI
+                (PreciseFloat float') <- (PreciseFloat float) `scale` basisBI
 
                 let carry = if j == zero && isFinit == true then one else zero
                 let float'' = float' {finit = float'.finit + carry}
@@ -272,4 +272,4 @@ getPost digits basis isFinit pf@(PseudoFloat f0) = tailRecM4 loop zero Nil Nil p
                 -- Update finit part according to index *i*
                 let float0'' = float'' {finit = float''.finit - iBI * shift}
 
-                pure $ Loop $ {a: (j + one), b: (float.finit : fs), c: (c : cs), d: (PseudoFloat float0'')}
+                pure $ Loop $ {a: (j + one), b: (float.finit : fs), c: (c : cs), d: (PreciseFloat float0'')}
