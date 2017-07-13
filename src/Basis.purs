@@ -2,7 +2,6 @@ module Basis where
 
 
 import Prelude
-
 import Control.Bind ((=<<))
 import Data.Array as Array
 import Data.BigInt (BigInt(..), fromInt, fromString, pow, toNumber, toString, abs)
@@ -18,6 +17,9 @@ import Data.String as String
 import Data.Either (Either (..))
 import Control.Error.Util (note)
 import Control.Monad.Rec.Class (Step (..), tailRec, tailRecM, tailRecM2, class MonadRec)
+
+import Precise
+
 
 two = one + one
 
@@ -173,7 +175,7 @@ createBasisFunctions digitsArray =
 
                 -- Calculate *pre* and *post* radix strings
                 pre <- stringFromBase Nil propper
-                post <- getPost' basis finit (pseudoFloatFromRatio remainder)
+                post <- getPost' basis finit (fromRatio remainder)
                 let string = pre <> (Cons '.' Nil) <> post
 
                 -- TODO Alter string for display
@@ -220,72 +222,6 @@ createBasisFunctions digitsArray =
                             }
 
 
-ten = fromInt 10 :: BigInt
-
-
-
--- TODO more usefull default
-bigIntFromCharList :: List Char -> BigInt
-bigIntFromCharList = (fromMaybe zero) <<< fromString <<< String.fromCharArray <<< toUnfoldable
-
-charListFromBigInt :: BigInt -> List Char
-charListFromBigInt = fromFoldable <<< String.toCharArray <<< toString
-
-
-pfFromInt finit infinit shift = PseudoFloat
-    {   finit   : fromInt finit
-    ,   infinit : fromInt infinit
-    ,   shift   : shift
-    }
-
-data PseudoFloat = PseudoFloat
-    {   finit   :: BigInt
-    ,   infinit :: BigInt
-    ,   shift   :: Int
-    }
-
--- TODO use generics, problem: bigdata cannot derive generics
-instance showPseudoFloat :: Show PseudoFloat where
-    show (PseudoFloat dr) =
-        "{finit : " <> (show dr.finit)
-        <> ", infinit : " <> (show dr.infinit)
-        <> ", shift : " <> (show dr.shift) <> "}"
-
-pseudoFloatFromRatio :: Ratio BigInt -> PseudoFloat
-pseudoFloatFromRatio (Ratio numerator denominator) = divide numerator Nil Nil (-one)
-  where
-    divide :: BigInt       -- Current divident
-           -> List BigInt  -- List of previous dividents
-           -> List Char    -- List of whole quotients
-           -> Int          -- Counter
-           -> PseudoFloat
-    divide dividend previousDividends quotients counter
-        | dividend == zero = PseudoFloat
-            {   finit   : bigIntFromCharList quotients
-            ,   infinit : zero
-            ,   shift   : counter
-            }
-        | otherwise =
-            case dividend `elemIndex` previousDividends of
-                -- In case of recurrence, return the result, otherwise, divide
-                -- the remaining numerator further
-                Just i_infinit ->
-                    let i_drop  = length quotients - i_infinit - one
-                        infinit = bigIntFromCharList $ drop i_drop quotients
-                        finit   = bigIntFromCharList quotients - infinit
-                    in  PseudoFloat {finit, infinit, shift : counter}
-                Nothing ->
-                    divide dividend' previousDividends' quotients' counter'
-                      where
-                        counter' = counter + one
-                        previousDividends' = dividend : previousDividends
-                        -- Factorize by the current denominator, and save the
-                        -- factor to the string of quotients
-                        factor = charListFromBigInt $ dividend / denominator
-                        quotients' = quotients <> factor
-                        dividend' = (dividend `mod` denominator) * ten
-
-
 getPost
     :: List Char          -- Digits
     -> Int                -- Base
@@ -319,7 +255,7 @@ getPost digits basis isFinit pf@(PseudoFloat f0) = tailRecM4 loop zero Nil Nil p
             -- No recurrence -> calculate next step
              Nothing -> do
                 -- Update float based on calculations with the infinit part
-                let (PseudoFloat float') = ((PseudoFloat float) `scalePseudoFloat` basisBI)
+                (PseudoFloat float') <- (PseudoFloat float) `scale` basisBI
 
                 let carry = if j == zero && isFinit == true then one else zero
                 let float'' = float' {finit = float'.finit + carry}
@@ -337,67 +273,3 @@ getPost digits basis isFinit pf@(PseudoFloat f0) = tailRecM4 loop zero Nil Nil p
                 let float0'' = float'' {finit = float''.finit - iBI * shift}
 
                 pure $ Loop $ {a: (j + one), b: (float.finit : fs), c: (c : cs), d: (PseudoFloat float0'')}
-
-scalePseudoFloat
-    :: PseudoFloat  -- Input
-    -> BigInt       -- Scaling factor
-    -> PseudoFloat  -- Output
-scalePseudoFloat pseudoFloat@(PseudoFloat pfr) factor
-    | not $ isRecurring pseudoFloat = PseudoFloat pfr {finit = pfr.finit * factor}
-    | otherwise                     = PseudoFloat {finit, infinit, shift}
-  where
-    l = (countDigits pfr.infinit)
-
-    factorString = reverse <<< Array.toUnfoldable <<< String.toCharArray <<< toString $ factor
-    factorString' = dropWhile ((==) '0') factorString
-    factor' = fromMaybe zero (fromString <<< String.fromCharArray <<< Array.fromFoldable <<< reverse $ factorString')
-    shift = pfr.shift - (length factorString - length factorString')
-
-    splitRecurrence :: BigInt -> Maybe {finit :: BigInt, infinit :: BigInt}
-    splitRecurrence int = do
-      let chars = reverse $ charListFromBigInt int
-      infinitChars <- loop' chars Nil Nil
-
-      let finit' = bigIntFromCharList <<< reverse $ drop (length infinitChars * 2) chars
-      let finit = finit' * ten `pow` (fromInt $ length infinitChars)
-      let infinit = bigIntFromCharList $ reverse infinitChars
-
-      pure {finit, infinit}
-
-      where
-        loop' (c : cs) acc can = loop' cs acc' can'
-          where
-            acc' = acc `snoc` c
-            can' = if cs `startswith` acc' then acc' else can
-        loop' _        _   Nil = Nothing
-        loop' _        _   can = Just can
-
-
-    loop v n =
-      let
-        v' = v `shiftLeft` l + pfr.infinit * factor'
-      in
-        if    v' `shiftRight` (l * n) == v `shiftRight` (l * (n - one))
-        then  v' `shiftRight` (l * n)
-        else  loop v' (n + one)
-
-    v0 = ((pfr.finit + pfr.infinit) * factor') `shiftLeft` l + pfr.infinit * factor'
-
-    v'' = loop v0 one
-
-    {finit, infinit} = fromMaybe {finit:zero, infinit:zero} (splitRecurrence v'')
-
-shiftRight a b = a / (ten `pow` b)
-shiftLeft a b  = a * (ten `pow` b)
-
-startswith :: (List Char) -> List Char -> Boolean
-startswith (c1 : cs1) (c2 : cs2) | c1 == c2   = startswith cs1 cs2
-                                 | otherwise  = false
-startswith _          Nil                     = true
-startswith Nil        _                       = false
-
-isRecurring :: PseudoFloat -> Boolean
-isRecurring (PseudoFloat pseudoFloatRec) = pseudoFloatRec.infinit /= zero
-
-countDigits :: BigInt -> BigInt
-countDigits = fromInt <<< String.length <<< toString
