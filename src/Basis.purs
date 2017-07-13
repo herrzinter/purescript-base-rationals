@@ -11,7 +11,7 @@ import Data.EuclideanRing (class EuclideanRing)
 import Data.Foldable (any, foldl, foldr)
 import Data.Function ((#))
 import Data.Int (fromNumber)
-import Data.List (List(..), findIndex, take, drop, elemIndex, filter, fromFoldable, index, length, reverse, slice, init, tail, last, head, snoc, toUnfoldable, (..), (:))
+import Data.List (List(..), findIndex, take, drop, elemIndex, dropWhile, filter, fromFoldable, index, length, reverse, slice, init, tail, last, head, snoc, toUnfoldable, (..), (:))
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Ratio (Ratio(..), denominator, numerator)
 import Data.String as String
@@ -344,12 +344,14 @@ scalePseudoFloat
     -> PseudoFloat  -- Output
 scalePseudoFloat pseudoFloat@(PseudoFloat pfr) factor
     | not $ isRecurring pseudoFloat = PseudoFloat pfr {finit = pfr.finit * factor}
-    | otherwise               = PseudoFloat
-        pfr   {   finit   = finit
-              ,   infinit = infinit
-              }
+    | otherwise                     = PseudoFloat {finit, infinit, shift}
   where
     l = (countDigits pfr.infinit)
+
+    factorString = reverse <<< Array.toUnfoldable <<< String.toCharArray <<< toString $ factor
+    factorString' = dropWhile ((==) '0') factorString
+    factor' = fromMaybe zero (fromString <<< String.fromCharArray <<< Array.fromFoldable <<< reverse $ factorString')
+    shift = pfr.shift - (length factorString - length factorString')
 
     splitRecurrence :: BigInt -> Maybe {finit :: BigInt, infinit :: BigInt}
     splitRecurrence int = do
@@ -370,15 +372,16 @@ scalePseudoFloat pseudoFloat@(PseudoFloat pfr) factor
         loop' _        _   Nil = Nothing
         loop' _        _   can = Just can
 
+
     loop v n =
       let
-        v' = v `shiftLeft` l + pfr.infinit * factor
+        v' = v `shiftLeft` l + pfr.infinit * factor'
       in
         if    v' `shiftRight` (l * n) == v `shiftRight` (l * (n - one))
         then  v' `shiftRight` (l * n)
         else  loop v' (n + one)
 
-    v0 = ((pfr.finit + pfr.infinit) * factor) `shiftLeft` l + pfr.infinit * factor
+    v0 = ((pfr.finit + pfr.infinit) * factor') `shiftLeft` l + pfr.infinit * factor'
 
     v'' = loop v0 one
 
