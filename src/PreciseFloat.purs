@@ -80,7 +80,9 @@ scale pf@(PreciseFloat pfr) factor
 
         let value = scaleUntilRecurring pfr.finit pfr.infinit factor'
 
-        {finit, infinit} <- note "No recurrence" (splitTrailingRecurrence value)
+        {finit, infinit} <- note
+            ("Value '" <> toString value <> "' is not recurring")
+            (splitTrailingRecurrence value)
 
         pure $ PreciseFloat {finit, infinit, shift : shift'}
 
