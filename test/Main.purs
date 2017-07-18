@@ -122,6 +122,7 @@ preciseFloatScalingTestArray =
     ,   PreciseFloatScalingTestInt 0 12 2       0 36 2           3
     ,   PreciseFloatScalingTestInt 0 45 2       100 36 2         3
     ,   PreciseFloatScalingTestInt 57000 819 7  520436000 198 7  9001
+    ,   PreciseFloatScalingTestInt 0 3 1        30 3 1           10
     ]
 
 data PreciseFloatScalingTest
