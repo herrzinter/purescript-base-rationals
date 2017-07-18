@@ -7,7 +7,7 @@ import Data.Array as Array
 import Data.BigInt as BI
 
 import Data.BigInt (BigInt(..), fromString, pow, toString)
-import Data.Ratio (Ratio(..), denominator, numerator)
+import Data.Ratio (Ratio(..), denominator, numerator, gcd)
 import Data.List (List(..), elemIndex, drop, dropWhile, length, reverse, snoc, (:))
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Either (Either (..))
@@ -31,18 +31,25 @@ instance showPreciseFloat :: Show PreciseFloat where
         <> ", shift : " <> show dr.shift <> "}"
 
 fromRatio :: Ratio BigInt -> PreciseFloat
-fromRatio (Ratio numerator denominator) = loop numerator Nil Nil (-one)
+fromRatio ratio = loop numerator' Nil Nil (-one)
   where
-    loop :: BigInt     -- Current divident
-       -> List BigInt  -- List of previous dividents
-       -> List Char    -- List of whole quotients
-       -> Int          -- Counter
-       -> PreciseFloat
+    (Ratio numerator denominator) = norm ratio
+    propper = numerator / denominator
+    numerator' = numerator - propper * denominator
+
+    loop
+      :: BigInt       -- Current divident
+      -> List BigInt  -- List of previous dividents
+      -> List Char    -- List of whole quotients
+      -> Int          -- Counter
+      -> PreciseFloat
     loop dividend previousDividends quotients counter
-        | dividend == zero = PreciseFloat
-            {   finit   : fromCharList quotients
+        | dividend == zero =
+          let counter' = if counter == (-one) then zero else counter
+          in  PreciseFloat
+            {   finit   : fromCharList quotients + propper `shiftLeft` (BI.fromInt counter')
             ,   infinit : zero
-            ,   shift   : counter
+            ,   shift   : counter'
             }
         | otherwise =
             case dividend `elemIndex` previousDividends of
@@ -52,6 +59,7 @@ fromRatio (Ratio numerator denominator) = loop numerator Nil Nil (-one)
                     let i_drop  = length quotients - i_infinit - one
                         infinit = fromCharList $ drop i_drop quotients
                         finit   = fromCharList quotients - infinit
+                                + propper `shiftLeft` (BI.fromInt counter)
                     in  PreciseFloat {finit, infinit, shift : counter}
                 Nothing ->
                     loop dividend' previousDividends' quotients' counter'
@@ -62,8 +70,16 @@ fromRatio (Ratio numerator denominator) = loop numerator Nil Nil (-one)
                         -- factor to the string of quotients
                         factor = fromBigInt $ dividend / denominator
                         quotients' = quotients <> factor
-                        dividend' = (dividend `mod` denominator) * ten
+                        dividend' =  (dividend `mod` denominator) * ten
 
+toRatio :: PreciseFloat -> Ratio BigInt
+toRatio pf@(PreciseFloat pfr)
+    | not $ isRecurring pf = Ratio pfr.finit (ten `pow` (BI.fromInt pfr.shift))
+    | otherwise            = Ratio num       den
+  where
+    l = countDigits pfr.infinit
+    num = (pfr.finit + pfr.infinit) `shiftLeft` l - pfr.finit
+    den = (ten `pow` l - one) `shiftLeft` (BI.fromInt pfr.shift)
 
 isRecurring :: PreciseFloat -> Boolean
 isRecurring (PreciseFloat pfr) = pfr.infinit /= zero
@@ -72,68 +88,17 @@ scale
     :: PreciseFloat                -- Input
     -> BigInt                      -- Scaling factor
     -> Either String PreciseFloat  -- Output
-scale pf@(PreciseFloat pfr) factor
-    | not $ isRecurring pf = do
-        pure $ PreciseFloat pfr {finit = pfr.finit * factor}
-    | otherwise            = do
-        let {factor', shift'} = splitShift factor pfr.shift
+scale pf factor = Right $ fromRatio $ (toRatio pf) * (Ratio factor one)
 
-        let value = scaleUntilRecurring pfr.finit pfr.infinit factor'
-
-        {finit, infinit} <- note
-            ("Value '" <> toString value <> "' is not recurring")
-            (splitTrailingRecurrence value)
-
-        pure $ PreciseFloat {finit, infinit, shift : shift'}
-
+norm :: Ratio BigInt -> Ratio BigInt
+norm r@(Ratio n d)
+    | n == zero = Ratio n one
+    | d == one  = Ratio n d
+    | otherwise = Ratio (n / divisor) (d / divisor)
+      where
+        divisor = gcd r
 
 -- Helpers
-
-scaleUntilRecurring :: BigInt -> BigInt -> BigInt -> BigInt
-scaleUntilRecurring finit infinit factor = loop one v0
-  where
-    l   = countDigits infinit
-    v0  = ((finit + infinit) * factor) `shiftLeft` l + infinit * factor
-
-    loop i val =
-        if    val' `shiftRight` (l * i) == val `shiftRight` (l * (i - one))
-        then  val' `shiftRight` (l * i)
-        else  loop (i + one) val'
-      where
-        val' = val `shiftLeft` l + infinit * factor
-
--- Remove tailing zeros of *factor* and adjust *shift*. These zeros
--- only change the *shift* of the *PreciseFloat*, but are not captured
--- by the rest of the algorithm, so they're removed up front
-splitShift :: BigInt -> Int -> {factor' :: BigInt, shift' :: Int}
-splitShift factor shift = {factor', shift'}
-  where
-    factorChars = reverse $ fromBigInt factor
-    factorChars' = dropWhile ((==) '0') factorChars
-    factor' = fromCharList $ reverse factorChars'
-    shift' = shift - (length factorChars - length factorChars')
-
-
-splitTrailingRecurrence :: BigInt -> Maybe {finit :: BigInt, infinit :: BigInt}
-splitTrailingRecurrence int = do
-    let chars = reverse $ fromBigInt int
-
-    infinitChars <- loop chars Nil Nil
-
-    let finit' = fromCharList <<< reverse $ drop (length infinitChars * 2) chars
-    let finit = finit' * ten `pow` (BI.fromInt $ length infinitChars)
-    let infinit = fromCharList $ reverse infinitChars
-
-    pure {finit, infinit}
-
-  where
-    loop (c : cs) acc can = loop cs acc' can'
-      where
-        acc' = acc `snoc` c
-        can' = if cs `startswith` acc' then acc' else can
-    loop _        _   Nil = Nothing
-    loop _        _   can = Just can
-
 
 shiftRight :: BigInt -> BigInt -> BigInt
 shiftRight a b = a / (ten `pow` b)

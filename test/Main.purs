@@ -117,7 +117,8 @@ testPreciseFloats = do
 preciseFloatScalingTestArray =
     [   PreciseFloatScalingTestInt 0 0 0        0 0 0            30493
     ,   PreciseFloatScalingTestInt 7891 0 0     72510399 0 0     9189
-    ,   PreciseFloatScalingTestInt 120 1 1      1080 9 1         9
+    ,   PreciseFloatScalingTestInt 120 1 1      109 0 0          9
+    ,   PreciseFloatScalingTestInt 1030 2 2     3090 6 2         3
     ,   PreciseFloatScalingTestInt 0 1 5        0 1 3            100
     ,   PreciseFloatScalingTestInt 0 12 2       0 36 2           3
     ,   PreciseFloatScalingTestInt 0 45 2       100 36 2         3
@@ -148,7 +149,7 @@ testPreciseFloatsScaling = do
 
                     guard $ pf2.finit /= pf1'.finit || pf2.infinit /= pf1'.infinit || pf2.shift /= pf1'.shift
 
-                    pure $ "Creating PreciseFloat failed with ("
+                    pure $ "Scaling PreciseFloat failed with ("
                         <> " f: " <> toString pf2.finit    <> " vs " <> toString pf1'.finit
                         <> " i: " <> toString pf2.infinit  <> " vs " <> toString pf1'.infinit
                         <> " s: " <> show pf2.shift        <> " vs " <> show pf1'.shift
