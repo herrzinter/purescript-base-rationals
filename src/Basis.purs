@@ -1,10 +1,15 @@
 module Basis where
 
 
+import PreciseFloat
 import Prelude
+
 import Control.Bind ((=<<))
+import Control.Error.Util (note)
+import Control.Monad.Rec.Class (Step(..), tailRec, tailRecM, tailRecM2, class MonadRec)
 import Data.Array as Array
 import Data.BigInt (BigInt(..), fromInt, fromString, pow, toNumber, toString, abs)
+import Data.Either (Either(..))
 import Data.Either (Either)
 import Data.EuclideanRing (class EuclideanRing)
 import Data.Foldable (any, foldl, foldr)
@@ -14,11 +19,7 @@ import Data.List (List(..), findIndex, take, drop, elemIndex, dropWhile, filter,
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Ratio (Ratio(..), denominator, numerator)
 import Data.String as String
-import Data.Either (Either (..))
-import Control.Error.Util (note)
-import Control.Monad.Rec.Class (Step (..), tailRec, tailRecM, tailRecM2, class MonadRec)
-
-import PreciseFloat
+import Math (remainder)
 
 
 two = one + one
@@ -181,7 +182,6 @@ createBasisFunctions digitsArray =
                 -- TODO Alter string for display
                 string' <- note "String is empty" (cleanString string)
 
-
                 pure <<< String.fromCharArray <<< toUnfoldable $ string'
               where
                 basisbi = fromInt basis
@@ -242,7 +242,7 @@ getPost digits basis isFinit pf@(PreciseFloat f0) = tailRecM4 loop zero Nil Nil 
     loop j fs cs (PreciseFloat float)
         -- If the finit part of the precise float is zero, then everything has
         -- been expressed in the output string -> Return
-        | float.finit == zero  = Right $ Done cs
+        | float.finit == zero  = Right $ Done $ reverse cs
         -- Otherwise, try to express yet more of the intermediate value in
         -- a character in the output base
         | otherwise = case float.finit `elemIndex` fs of
@@ -250,14 +250,15 @@ getPost digits basis isFinit pf@(PreciseFloat f0) = tailRecM4 loop zero Nil Nil 
              Just i ->
               let
                 i_drop  = length fs - i - one
+                cs' = reverse cs
               in
-                Right $ Done $ take i_drop cs <> (Cons '[' Nil) <> drop i_drop cs <> (Cons ']' Nil)
+                Right $ Done $ take i_drop cs' <> (Cons '[' Nil) <> drop i_drop cs' <> (Cons ']' Nil)
             -- No recurrence -> calculate next step
              Nothing -> do
                 -- Update float based on calculations with the infinit part
                 (PreciseFloat float') <- (PreciseFloat float) `scale` basisBI
 
-                let carry = if j == zero && isFinit == true then one else zero
+                let carry = if float.infinit /= zero && j == zero && isFinit == true then one else zero
                 let float'' = float' {finit = float'.finit + carry}
 
                 -- Calculate index *i* and corresponding char *c*
