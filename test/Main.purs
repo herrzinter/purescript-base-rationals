@@ -80,6 +80,7 @@ preciseFloatTestArray =
     ,   PreciseFloatTestInt 10000 10 1000 0 0
     ,   PreciseFloatTestString "123189" "35" "35196000000" "857142" 7
     ,   PreciseFloatTestString "89701389" "35" "25628968000000" "285714" 7
+    ,   PreciseFloatTestInt 10 13 0 769230 6
     ]
 
 data PreciseFloatTest
@@ -107,7 +108,7 @@ testPreciseFloats = do
 
             guard $ pf.finit /= f || pf.infinit /= i || pf.shift /= s
 
-            pure $ "Scaling PreciseFloat failed ("
+            pure $ "Creating PreciseFloat failed ("
                 <> " f: " <> toString pf.finit    <> " vs " <> toString f
                 <> " i: " <> toString pf.infinit  <> " vs " <> toString i
                 <> " s: " <> show pf.shift        <> " vs " <> show s
@@ -124,6 +125,8 @@ preciseFloatScalingTestArray =
     ,   PreciseFloatScalingTestInt 0 45 2       100 36 2         3
     ,   PreciseFloatScalingTestInt 57000 819 7  520436000 198 7  9001
     ,   PreciseFloatScalingTestInt 0 3 1        30 3 1           10
+    ,   PreciseFloatScalingTestInt 1 0 1        1 0 0            10
+    ,   PreciseFloatScalingTestInt 0 76923 6    0 769230 6       10
     ]
 
 data PreciseFloatScalingTest

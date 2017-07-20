@@ -15,7 +15,7 @@ import Data.EuclideanRing (class EuclideanRing)
 import Data.Foldable (any, foldl, foldr)
 import Data.Function ((#))
 import Data.Int (fromNumber)
-import Data.List (List(..), findIndex, take, drop, elemIndex, dropWhile, filter, fromFoldable, index, length, reverse, slice, init, tail, last, head, snoc, toUnfoldable, (..), (:))
+import Data.List (List(..), findIndex, take, drop, head, findIndex, elemIndex, dropWhile, filter, fromFoldable, index, length, reverse, slice, init, tail, last, head, snoc, toUnfoldable, (..), (:))
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Ratio (Ratio(..), denominator, numerator)
 import Data.String as String
@@ -228,30 +228,31 @@ getPost
     -> Boolean            -- Is the number reccurrent in the base
     -> PreciseFloat        -- Remainder as precise float
     -> Either String (List Char)  -- Post radix string
-getPost digits basis isFinit pf@(PreciseFloat f0) = tailRecM4 loop zero Nil Nil pf
+getPost digits basis isFinit pf0@(PreciseFloat f0) = tailRecM4 loop zero Nil Nil pf0
   where
     basisBI = fromInt basis
-    shift = ten `pow` (fromInt f0.shift)
 
     loop
         :: BigInt             -- Counter
-        -> List BigInt        -- Intermediate values to check for reccurence
+        -> List PreciseFloat        -- Intermediate values to check for reccurence
         -> List Char          -- Accumulator for the output string
         -> PreciseFloat        -- Intermediate value
-        -> Either String (Step {a::BigInt, b::(List BigInt), c::(List Char), d::(PreciseFloat)} (List Char))  -- Output String
-    loop j fs cs (PreciseFloat float)
+        -> Either String (Step {a::BigInt, b::List PreciseFloat, c::(List Char), d::(PreciseFloat)} (List Char))  -- Output String
+    loop j fs cs pf@(PreciseFloat float)
         -- If the finit part of the precise float is zero, then everything has
         -- been expressed in the output string -> Return
-        | float.finit == zero  = Right $ Done $ reverse cs
+        | (float.finit + float.infinit) == zero  = Right $ Done $ reverse cs
         -- Otherwise, try to express yet more of the intermediate value in
         -- a character in the output base
-        | otherwise = case float.finit `elemIndex` fs of
+        -- | otherwise = case (if ((fromMaybe '1' (head cs)) == '0') then Nothing else (float.finit + float.infinit) `elemIndex` fs)  of
+        | otherwise = case pf `elemIndex` fs  of
             -- Recurrence -> return with parantheses marking recurrence
              Just i ->
               let
                 i_drop  = length fs - i - one
                 cs' = reverse cs
               in
+                -- Right $ Done $ Array.toUnfoldable $ String.toCharArray $ show $ pf : fs
                 Right $ Done $ take i_drop cs' <> (Cons '[' Nil) <> drop i_drop cs' <> (Cons ']' Nil)
             -- No recurrence -> calculate next step
              Nothing -> do
@@ -262,6 +263,7 @@ getPost digits basis isFinit pf@(PreciseFloat f0) = tailRecM4 loop zero Nil Nil 
                 let float'' = float' {finit = float'.finit + carry}
 
                 -- Calculate index *i* and corresponding char *c*
+                let shift = ten `pow` (fromInt float'.shift)
                 let iBI = float''.finit / shift
                 i <- note
                     "Failed to convert numbers"
@@ -272,5 +274,9 @@ getPost digits basis isFinit pf@(PreciseFloat f0) = tailRecM4 loop zero Nil Nil 
 
                 -- Update finit part according to index *i*
                 let float0'' = float'' {finit = float''.finit - iBI * shift}
-
-                pure $ Loop $ {a: (j + one), b: (float.finit : fs), c: (c : cs), d: (PreciseFloat float0'')}
+                -- pure $ Done $ Array.toUnfoldable $ String.toCharArray $ show (PreciseFloat float')
+                pure $ Loop $ {   a: (j + one)
+                              ,   b: ((PreciseFloat float) : fs)
+                              ,   c: (c : cs)
+                              ,   d: (PreciseFloat float0'')
+                              }

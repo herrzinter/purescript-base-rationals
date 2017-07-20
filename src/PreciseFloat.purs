@@ -30,8 +30,10 @@ instance showPreciseFloat :: Show PreciseFloat where
         <> ", infinit : " <> toString dr.infinit
         <> ", shift : " <> show dr.shift <> "}"
 
+derive instance eqPreciseFloat :: Eq PreciseFloat
+
 fromRatio :: Ratio BigInt -> PreciseFloat
-fromRatio ratio = loop numerator' Nil Nil (-one)
+fromRatio ratio = loop (numerator' * ten) Nil Nil zero
   where
     (Ratio numerator denominator) = norm ratio
     propper = numerator / denominator
@@ -44,12 +46,10 @@ fromRatio ratio = loop numerator' Nil Nil (-one)
       -> Int          -- Counter
       -> PreciseFloat
     loop dividend previousDividends quotients counter
-        | dividend == zero =
-          let counter' = if counter == (-one) then zero else counter
-          in  PreciseFloat
-            {   finit   : fromCharList quotients + propper `shiftLeft` (BI.fromInt counter')
+        | dividend == zero = PreciseFloat
+            {   finit   : fromCharList quotients + propper `shiftLeft` (BI.fromInt counter)
             ,   infinit : zero
-            ,   shift   : counter'
+            ,   shift   : counter
             }
         | otherwise =
             case dividend `elemIndex` previousDividends of
@@ -78,8 +78,10 @@ toRatio pf@(PreciseFloat pfr)
     | otherwise            = Ratio num       den
   where
     l = countDigits pfr.infinit
-    num = (pfr.finit + pfr.infinit) `shiftLeft` l - pfr.finit
-    den = (ten `pow` l - one) `shiftLeft` (BI.fromInt pfr.shift)
+    s = BI.fromInt pfr.shift
+    l' = if l < s && pfr.finit == zero then s else l
+    num = (pfr.finit + pfr.infinit) `shiftLeft` l' - pfr.finit
+    den = (ten `pow` l' - one) `shiftLeft` (BI.fromInt pfr.shift)
 
 isRecurring :: PreciseFloat -> Boolean
 isRecurring (PreciseFloat pfr) = pfr.infinit /= zero
