@@ -15,19 +15,25 @@ import Control.Error.Util (note)
 
 
 data PreciseFloat = PreciseFloat
-    {   finit   :: BigInt
-    ,   infinit :: BigInt
-    ,   shift   :: Int
+    {   finit         :: BigInt
+    ,   infinit       :: BigInt
+    ,   infinitLength :: Int
+    ,   shift         :: Int
     }
 
-fromInt :: Int -> Int -> Int -> PreciseFloat
-fromInt finit infinit shift =
-    PreciseFloat {finit : BI.fromInt finit, infinit : BI.fromInt infinit, shift}
+fromInt :: Int -> Int -> Int -> Int -> PreciseFloat
+fromInt finit infinit infinitLength shift =
+    PreciseFloat  {   finit   : BI.fromInt finit
+                  ,   infinit : BI.fromInt infinit
+                  ,   infinitLength
+                  ,   shift
+                  }
 
 instance showPreciseFloat :: Show PreciseFloat where
     show (PreciseFloat dr) =
         "{finit : " <> toString dr.finit
         <> ", infinit : " <> toString dr.infinit
+        <> ", infinitLength : " <> show dr.infinitLength
         <> ", shift : " <> show dr.shift <> "}"
 
 derive instance eqPreciseFloat :: Eq PreciseFloat
@@ -50,6 +56,7 @@ fromRatio ratio = loop (numerator' * ten) Nil Nil zero
             {   finit   : fromCharList quotients + propper `shiftLeft` (BI.fromInt counter)
             ,   infinit : zero
             ,   shift   : counter
+            ,   infinitLength : zero
             }
         | otherwise =
             case dividend `elemIndex` previousDividends of
@@ -60,7 +67,8 @@ fromRatio ratio = loop (numerator' * ten) Nil Nil zero
                         infinit = fromCharList $ drop i_drop quotients
                         finit   = fromCharList quotients - infinit
                                 + propper `shiftLeft` (BI.fromInt counter)
-                    in  PreciseFloat {finit, infinit, shift : counter}
+                        infinitLength = i_infinit + one
+                    in  PreciseFloat {finit, infinit, shift : counter, infinitLength}
                 Nothing ->
                     loop dividend' previousDividends' quotients' counter'
                       where
@@ -77,11 +85,9 @@ toRatio pf@(PreciseFloat pfr)
     | not $ isRecurring pf = Ratio pfr.finit (ten `pow` (BI.fromInt pfr.shift))
     | otherwise            = Ratio num       den
   where
-    l = countDigits pfr.infinit
-    s = BI.fromInt pfr.shift
-    l' = if l < s && pfr.finit == zero then s else l
-    num = (pfr.finit + pfr.infinit) `shiftLeft` l' - pfr.finit
-    den = (ten `pow` l' - one) `shiftLeft` (BI.fromInt pfr.shift)
+    l = BI.fromInt pfr.infinitLength
+    num = (pfr.finit + pfr.infinit) `shiftLeft` l - pfr.finit
+    den = (ten `pow` l - one) `shiftLeft` (BI.fromInt pfr.shift)
 
 isRecurring :: PreciseFloat -> Boolean
 isRecurring (PreciseFloat pfr) = pfr.infinit /= zero
