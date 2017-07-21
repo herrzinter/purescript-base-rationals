@@ -62,9 +62,11 @@ testPfFromRatio = do
     case readPFFromRatioTest pfFromRatioTest of
         Nothing           -> pure "Failed to read creating PreciseFloatTest"
         Just {r, pf'}  -> do
-            let pf = fromRatio r
-            guard $ pf /= pf'
-            pure $ "Creating PreciseFloat failed with " <> show pf <> show pf'
+            case fromRatio r of
+                Left e -> pure e
+                Right pf -> do
+                    guard $ pf /= pf'
+                    pure $ "Creating PreciseFloat failed with " <> show pf <> show pf'
 
 
 pfScalingTestArray =
