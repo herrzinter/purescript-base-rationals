@@ -209,21 +209,18 @@ getPost digits basis isFinit pf0 = tailRecM4 loop zero Nil Nil pf0
                 -- Update float based on calculations with the infinit part
                 (PreciseFloat float') <- (PreciseFloat float) `scale` basisBI
 
-                let carry = if float.infinit /= zero && j == zero && isFinit == true then one else zero
-                let float'' = float' {finit = float'.finit + carry}
-
                 -- Calculate index *i* and corresponding char *c*
                 let shift = ten `pow` (BI.fromInt float'.shift)
-                let iBI = float''.finit / shift
+                let iBI = float'.finit / shift
                 c <- lookupDigits' iBI
 
                 -- Update finit part according to index *i*
-                let float0'' = float'' {finit = float''.finit - iBI * shift}
+                let float'' = float' {finit = float'.finit - iBI * shift}
                 -- pure $ Done $ Array.toUnfoldable $ String.toCharArray $ show (PreciseFloat float')
                 pure $ Loop $ {   a: (j + one)
                               ,   b: ((PreciseFloat float) : fs)
                               ,   c: (c : cs)
-                              ,   d: (PreciseFloat float0'')
+                              ,   d: (PreciseFloat float'')
                               }
 
 lookupDigits :: List Char -> BigInt -> Either String Char

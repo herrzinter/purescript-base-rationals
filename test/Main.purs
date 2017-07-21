@@ -143,6 +143,8 @@ toFromStringTestArray =
     ,   (TestToFromStringInt  2 "10" 2 1)
     ,   (TestToFromStringInt  2 "100" 4 1)
     ,   (TestToFromStringInt  2 "1101" 13 1)
+
+    ,   (TestToFromStringInt  3 "1.1" 4 3)
     ]
 
 toFromStringTestArray' =
