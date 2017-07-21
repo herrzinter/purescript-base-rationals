@@ -112,14 +112,6 @@ scale
     -> Either String PreciseFloat  -- Output
 scale pf factor = fromRatio $ (toRatio pf) * (Ratio factor one)
 
-norm :: Ratio BigInt -> Ratio BigInt
-norm r@(Ratio n d)
-    | n == zero = Ratio n one
-    | d == one  = Ratio n d
-    | otherwise = Ratio (n / divisor) (d / divisor)
-      where
-        divisor = gcd r
-
 
 -- Helpers
 
