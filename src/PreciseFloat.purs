@@ -39,7 +39,7 @@ fromInt finit infinit infinitLength shift =
                   ,   shift
                   }
 
-fromRatio :: Ratio BigInt -> PreciseFloat
+fromRatio :: Ratio BigInt -> Either String PreciseFloat
 fromRatio ratio = loop (numerator' * ten) Nil Nil zero
   where
     (Ratio numerator denominator) = norm ratio
@@ -51,25 +51,38 @@ fromRatio ratio = loop (numerator' * ten) Nil Nil zero
       -> List BigInt  -- List of previous dividents
       -> List Char    -- List of whole quotients
       -> Int          -- Counter
-      -> PreciseFloat
+      -> Either String PreciseFloat
     loop dividend previousDividends quotients counter
-        | dividend == zero = PreciseFloat
-            {   finit   : fromCharList quotients + propper `shiftLeft` (BI.fromInt counter)
-            ,   infinit : zero
-            ,   shift   : counter
-            ,   infinitLength : zero
-            }
+        | dividend == zero = do
+            finit' <- fromCharList quotients
+
+            pure $ PreciseFloat
+                {   finit   : finit' + propper `shiftLeft` (BI.fromInt counter)
+                ,   infinit : zero
+                ,   shift   : counter
+                ,   infinitLength : zero
+                }
         | otherwise =
             case dividend `elemIndex` previousDividends of
                 -- In case of recurrence, return the result, otherwise, divide
                 -- the remaining numerator further
-                Just i_infinit ->
+                Just i_infinit -> do
                     let i_drop  = length quotients - i_infinit - one
-                        infinit = fromCharList $ drop i_drop quotients
-                        finit   = fromCharList quotients - infinit
-                                + propper `shiftLeft` (BI.fromInt counter)
-                        infinitLength = i_infinit + one
-                    in  PreciseFloat {finit, infinit, shift : counter, infinitLength}
+
+                    infinit <- fromCharList $ drop i_drop quotients
+                    finit <- fromCharList quotients
+
+                    let finit' = finit - infinit
+                               + propper `shiftLeft` (BI.fromInt counter)
+
+                    let infinitLength = i_infinit + one
+
+                    pure $ PreciseFloat
+                        {   finit : finit'
+                        ,   shift : counter
+                        ,   infinit
+                        ,   infinitLength
+                        }
                 Nothing ->
                     loop dividend' previousDividends' quotients' counter'
                       where
@@ -97,7 +110,7 @@ scale
     :: PreciseFloat                -- Input
     -> BigInt                      -- Scaling factor
     -> Either String PreciseFloat  -- Output
-scale pf factor = Right $ fromRatio $ (toRatio pf) * (Ratio factor one)
+scale pf factor = fromRatio $ (toRatio pf) * (Ratio factor one)
 
 norm :: Ratio BigInt -> Ratio BigInt
 norm r@(Ratio n d)
@@ -115,14 +128,11 @@ ten = BI.fromInt 10 :: BigInt
 shiftLeft :: BigInt -> BigInt -> BigInt
 shiftLeft value shift  = value * (ten `pow` shift)
 
--- TODO more usefull default
-fromCharList :: List Char -> BigInt
-fromCharList = (fromMaybe zero)
+fromCharList :: List Char -> Either String BigInt
+fromCharList = note "Could not convert (List Char) to BigInt"
     <<< fromString
     <<< String.fromCharArray
     <<< Array.fromFoldable
 
 fromBigInt :: BigInt -> List Char
-fromBigInt = Array.toUnfoldable
-    <<< String.toCharArray
-    <<< toString
+fromBigInt = Array.toUnfoldable <<< String.toCharArray <<< toString

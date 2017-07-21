@@ -113,7 +113,8 @@ createBasisFunctions digitsArray
 
             -- Calculate *pre* and *post* radix chars
             pre <- stringFromBase Nil propper
-            post <- getPost' basis finit (fromRatio remainder)
+            pf <- fromRatio remainder
+            post <- getPost' basis finit pf
             let string = pre <> (Cons '.' Nil) <> post
 
             -- TODO Alter chars for display
