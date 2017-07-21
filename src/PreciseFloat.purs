@@ -42,7 +42,7 @@ fromInt finit infinit infinitLength shift =
 fromRatio :: Ratio BigInt -> Either String PreciseFloat
 fromRatio ratio = loop (numerator' * ten) Nil Nil zero
   where
-    (Ratio numerator denominator) = norm ratio
+    (Ratio numerator denominator) = ratio
     propper = numerator / denominator
     numerator' = numerator - propper * denominator
 
