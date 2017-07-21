@@ -109,20 +109,8 @@ norm r@(Ratio n d)
 
 -- Helpers
 
-shiftRight :: BigInt -> BigInt -> BigInt
-shiftRight a b = a / (ten `pow` b)
-
 shiftLeft :: BigInt -> BigInt -> BigInt
 shiftLeft a b  = a * (ten `pow` b)
-
-startswith :: (List Char) -> List Char -> Boolean
-startswith (c1 : cs1) (c2 : cs2) | c1 == c2   = startswith cs1 cs2
-                                 | otherwise  = false
-startswith _          Nil                     = true
-startswith Nil        _                       = false
-
-countDigits :: BigInt -> BigInt
-countDigits = BI.fromInt <<< String.length <<< toString
 
 ten = BI.fromInt 10 :: BigInt
 
