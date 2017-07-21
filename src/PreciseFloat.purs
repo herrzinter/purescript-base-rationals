@@ -106,11 +106,10 @@ toRatio pf@(PreciseFloat pfr)
 isRecurring :: PreciseFloat -> Boolean
 isRecurring (PreciseFloat pfr) = pfr.infinit /= zero
 
-scale
-    :: PreciseFloat                -- Input
-    -> BigInt                      -- Scaling factor
-    -> Either String PreciseFloat  -- Output
-scale pf factor = fromRatio $ (toRatio pf) * (Ratio factor one)
+scale :: PreciseFloat -> BigInt -> Either String PreciseFloat
+scale pf factor = do
+    let (Ratio n d) = toRatio pf
+    fromRatio $ Ratio (n * factor) d
 
 
 -- Helpers
