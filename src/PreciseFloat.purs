@@ -22,11 +22,10 @@ data PreciseFloat = PreciseFloat
   }
 
 instance showPreciseFloat :: Show PreciseFloat where
-    show (PreciseFloat dr) =
-        "{finit : " <> toString dr.finit
-        <> ", infinit : " <> toString dr.infinit
-        <> ", infinitLength : " <> show dr.infinitLength
-        <> ", shift : " <> show dr.shift <> "}"
+    show (PreciseFloat pfr) = "{f:" <> toString pfr.finit
+        <> "i:" <> toString pfr.infinit
+        <> "s:" <> toString pfr.shift
+        <> "il:" <> show pfr.infinitLength
 
 derive instance eqPreciseFloat :: Eq PreciseFloat
 
