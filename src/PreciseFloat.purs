@@ -107,13 +107,13 @@ norm r@(Ratio n d)
       where
         divisor = gcd r
 
--- Helpers
 
-shiftLeft :: BigInt -> BigInt -> BigInt
-shiftLeft a b  = a * (ten `pow` b)
+-- Helpers
 
 ten = BI.fromInt 10 :: BigInt
 
+shiftLeft :: BigInt -> BigInt -> BigInt
+shiftLeft value shift  = value * (ten `pow` shift)
 
 -- TODO more usefull default
 fromCharList :: List Char -> BigInt
