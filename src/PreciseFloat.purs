@@ -30,15 +30,6 @@ instance showPreciseFloat :: Show PreciseFloat where
 
 derive instance eqPreciseFloat :: Eq PreciseFloat
 
-
-fromInt :: Int -> Int -> Int -> Int -> PreciseFloat
-fromInt finit infinit infinitLength shift =
-    PreciseFloat  {   finit   : BI.fromInt finit
-                  ,   infinit : BI.fromInt infinit
-                  ,   infinitLength
-                  ,   shift
-                  }
-
 fromRatio :: Ratio BigInt -> Either String PreciseFloat
 fromRatio ratio = loop (numerator' * ten) Nil Nil zero
   where
@@ -97,11 +88,11 @@ fromRatio ratio = loop (numerator' * ten) Nil Nil zero
 toRatio :: PreciseFloat -> Ratio BigInt
 toRatio pf@(PreciseFloat pfr)
     | not $ isRecurring pf = Ratio pfr.finit (ten `pow` (BI.fromInt pfr.shift))
-    | otherwise            = Ratio num       den
+    | otherwise            = Ratio n d
   where
-    l = BI.fromInt pfr.infinitLength
-    num = (pfr.finit + pfr.infinit) `shiftLeft` l - pfr.finit
-    den = (ten `pow` l - one) `shiftLeft` (BI.fromInt pfr.shift)
+    il = BI.fromInt pfr.infinitLength
+    n = (pfr.finit + pfr.infinit) `shiftLeft` il - pfr.finit
+    d = (ten `pow` il - one) `shiftLeft` (BI.fromInt pfr.shift)
 
 isRecurring :: PreciseFloat -> Boolean
 isRecurring (PreciseFloat pfr) = pfr.infinit /= zero
