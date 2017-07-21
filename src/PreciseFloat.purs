@@ -15,11 +15,11 @@ import Control.Error.Util (note)
 
 
 data PreciseFloat = PreciseFloat
-    {   finit         :: BigInt
-    ,   infinit       :: BigInt
-    ,   infinitLength :: Int
-    ,   shift         :: Int
-    }
+  { finit         :: BigInt
+  , infinit       :: BigInt
+  , infinitLength :: Int
+  , shift         :: BigInt
+  }
 
 instance showPreciseFloat :: Show PreciseFloat where
     show (PreciseFloat dr) =
@@ -30,77 +30,68 @@ instance showPreciseFloat :: Show PreciseFloat where
 
 derive instance eqPreciseFloat :: Eq PreciseFloat
 
-fromRatio :: Ratio BigInt -> Either String PreciseFloat
-fromRatio ratio = loop (numerator' * ten) Nil Nil zero
+
+fromRatio :: Ratio BigInt -> PreciseFloat
+fromRatio ratio = loop zero (num0 `shiftLeft` one) Nil zero
   where
-    (Ratio numerator denominator) = ratio
-    propper = numerator / denominator
-    numerator' = numerator - propper * denominator
+    -- Seperate whole/propper part from remainder as algorithm fails to work
+    -- with improper ratios
+    {propper, remainder: (Ratio num0 den)} = propperize ratio
 
     loop
-      :: BigInt       -- Current divident
-      -> List BigInt  -- List of previous dividents
-      -> List Char    -- List of whole quotients
-      -> Int          -- Counter
-      -> Either String PreciseFloat
-    loop dividend previousDividends quotients counter
-        | dividend == zero = do
-            finit' <- fromCharList quotients
-
-            pure $ PreciseFloat
-                {   finit   : finit' + propper `shiftLeft` (BI.fromInt counter)
-                ,   infinit : zero
-                ,   shift   : counter
-                ,   infinitLength : zero
-                }
-        | otherwise =
-            case dividend `elemIndex` previousDividends of
-                -- In case of recurrence, return the result, otherwise, divide
-                -- the remaining numerator further
-                Just i_infinit -> do
-                    let i_drop  = length quotients - i_infinit - one
-
-                    infinit <- fromCharList $ drop i_drop quotients
-                    finit <- fromCharList quotients
-
-                    let finit' = finit - infinit
-                               + propper `shiftLeft` (BI.fromInt counter)
-
-                    let infinitLength = i_infinit + one
-
-                    pure $ PreciseFloat
-                        {   finit : finit'
-                        ,   shift : counter
-                        ,   infinit
-                        ,   infinitLength
-                        }
-                Nothing ->
-                    loop dividend' previousDividends' quotients' counter'
-                      where
-                        counter' = counter + one
-                        previousDividends' = dividend : previousDividends
-                        -- Factorize by the current denominator, and save the
-                        -- factor to the string of quotients
-                        factor = fromBigInt $ dividend / denominator
-                        quotients' = quotients <> factor
-                        dividend' =  (dividend `mod` denominator) * ten
+      :: BigInt       -- Counter representing the shift
+      -> BigInt       -- Current numerator
+      -> List BigInt  -- Previous numerators to check for recurrence
+      -> BigInt       -- Accumulator
+      -> PreciseFloat
+    loop shift num nums acc
+        | num /= zero = case num `elemIndex` nums of
+            -- Numerator is not zero and not recurring -> next loop step
+            Nothing ->
+              let quotient = num / den
+                  remainder = num `mod` den
+                  -- Append the *quotient* on the left of the acc eg.
+                  -- acc = 123, quotient = 0 -> acc' = 1234
+                  acc' = acc `shiftLeft` one + quotient
+                  -- The remainder is shifted and applied to the loop
+                  num' = remainder `shiftLeft` one
+              in loop (shift + one) num' (num : nums) acc'
+            -- Numerator from *i* steps before recurrs
+            Just i ->
+              let iBI = BI.fromInt i + one
+                  -- This replaces the i digits on the right by zeros eg.
+                  -- accumulator = 123456, iBI 2 -> 123400
+                  finitPartOfAcc = acc `shiftRight` iBI `shiftLeft` iBI
+              in  PreciseFloat
+                    { finit : finitPartOfAcc + propper `shiftLeft` shift
+                    , infinit: acc - finitPartOfAcc
+                    , infinitLength: i + one
+                    , shift
+                    }
+        -- Numerator is zero -> no recurrence, infinit part equals zero
+        | otherwise = PreciseFloat
+          { finit: acc + propper `shiftLeft` shift
+          , infinit: zero
+          , shift
+          , infinitLength: zero
+          }
 
 toRatio :: PreciseFloat -> Ratio BigInt
 toRatio pf@(PreciseFloat pfr)
-    | not $ isRecurring pf = Ratio pfr.finit (ten `pow` (BI.fromInt pfr.shift))
-    | otherwise            = Ratio n d
-  where
-    il = BI.fromInt pfr.infinitLength
-    n = (pfr.finit + pfr.infinit) `shiftLeft` il - pfr.finit
-    d = (ten `pow` il - one) `shiftLeft` (BI.fromInt pfr.shift)
+    | not $ isRecurring pf = Ratio pfr.finit (ten `pow` pfr.shift)
+    | otherwise            = Ratio num den
+      where
+        il = BI.fromInt pfr.infinitLength
+        num = (pfr.finit + pfr.infinit) `shiftLeft` il - pfr.finit
+        den = (ten `pow` il - one) `shiftLeft` pfr.shift
 
 isRecurring :: PreciseFloat -> Boolean
 isRecurring (PreciseFloat pfr) = pfr.infinit /= zero
 
-scale :: PreciseFloat -> BigInt -> Either String PreciseFloat
-scale pf factor = do
-    let (Ratio n d) = toRatio pf
-    fromRatio $ Ratio (n * factor) d
+scale :: PreciseFloat -> BigInt -> PreciseFloat
+scale pf factor = fromRatio $ Ratio (num * factor) den
+  where
+    (Ratio num den) = toRatio pf
 
 
 -- Helpers
@@ -110,6 +101,9 @@ ten = BI.fromInt 10 :: BigInt
 shiftLeft :: BigInt -> BigInt -> BigInt
 shiftLeft value shift  = value * (ten `pow` shift)
 
+shiftRight :: BigInt -> BigInt -> BigInt
+shiftRight value shift = value / (ten `pow` shift)
+
 fromCharList :: List Char -> Either String BigInt
 fromCharList = note "Could not convert (List Char) to BigInt"
     <<< fromString
@@ -118,3 +112,10 @@ fromCharList = note "Could not convert (List Char) to BigInt"
 
 fromBigInt :: BigInt -> List Char
 fromBigInt = Array.toUnfoldable <<< String.toCharArray <<< toString
+
+propperize :: Ratio BigInt -> {propper :: BigInt, remainder :: Ratio BigInt}
+propperize ratio@(Ratio num den) = {propper, remainder}
+  where
+    -- Calculate propper part of ratio and substract it to get remainder
+    propper   = num / den
+    remainder = ratio - Ratio propper one

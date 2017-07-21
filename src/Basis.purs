@@ -113,8 +113,7 @@ createBasisFunctions digitsArray
 
             -- Calculate *pre* and *post* radix chars
             pre <- stringFromBase Nil propper
-            pf <- fromRatio remainder
-            post <- getPost' basis finit pf
+            post <- getPost' basis finit (fromRatio remainder)
             let string = pre <> (Cons '.' Nil) <> post
 
             -- TODO Alter chars for display
@@ -208,10 +207,10 @@ getPost digits basis isFinit pf0 = tailRecM4 loop zero Nil Nil pf0
             -- No recurrence -> calculate next step
              Nothing -> do
                 -- Update float based on calculations with the infinit part
-                (PreciseFloat float') <- (PreciseFloat float) `scale` basisBI
+                let (PreciseFloat float') = (PreciseFloat float) `scale` basisBI
 
                 -- Calculate index *i* and corresponding char *c*
-                let shift = ten `pow` (BI.fromInt float'.shift)
+                let shift = ten `pow` float'.shift
                 let iBI = float'.finit / shift
                 c <- lookupDigits' iBI
 

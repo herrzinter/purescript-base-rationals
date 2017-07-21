@@ -42,14 +42,16 @@ readPFFromRatioTest (PFFromRatioTestString ns ds fs is ils s) = do
     d <- fromString ds
     finit <- fromString fs
     infinit <- fromString is
+    let shift = fromInt s
 
-    let pf' = PreciseFloat {finit, infinit, infinitLength : ils, shift : s}
+    let pf' = PreciseFloat {finit, infinit, infinitLength : ils, shift}
     let r   = Ratio n d
 
     pure {r, pf'}
-readPFFromRatioTest (PFFromRatioTestInt n d f i infinitLength shift) = do
+readPFFromRatioTest (PFFromRatioTestInt n d f i infinitLength s) = do
     let finit   = fromInt f
     let infinit = fromInt i
+    let shift = fromInt s
 
     let pf' = PreciseFloat {finit, infinit, infinitLength, shift}
     let r   = Ratio (fromInt n) (fromInt d)
@@ -62,11 +64,9 @@ testPfFromRatio = do
     case readPFFromRatioTest pfFromRatioTest of
         Nothing           -> pure "Failed to read creating PreciseFloatTest"
         Just {r, pf'}  -> do
-            case fromRatio r of
-                Left e -> pure e
-                Right pf -> do
-                    guard $ pf /= pf'
-                    pure $ "Creating PreciseFloat failed with " <> show pf <> show pf'
+            let pf = fromRatio r
+            guard $ pf /= pf'
+            pure $ "Creating PreciseFloat failed with " <> show pf <> show pf'
 
 
 pfScalingTestArray =
@@ -92,13 +92,13 @@ readPfScalingTest (PfScalingTestInt f1 i1 il1 s1   f2 i2 il2 s2 factor) =
         {   finit         : fromInt f1
         ,   infinit       : fromInt i1
         ,   infinitLength : il1
-        ,   shift         : s1
+        ,   shift         : fromInt s1
         }
     pf2 = PreciseFloat
         {   finit         : fromInt f2
         ,   infinit       : fromInt i2
         ,   infinitLength : il2
-        ,   shift         : s2
+        ,   shift         : fromInt s2
         }
 
     in
@@ -110,14 +110,12 @@ testPfScaling = do
 
     let {pf1, pf2, factor} = readPfScalingTest pfScalingTest
 
-    case pf1 `scale` factor of
-        Left e                    -> pure e
-        Right pf1' -> do
+    let pf1' = pf1 `scale` factor
 
-            guard $ pf2 /= pf1'
+    guard $ pf2 /= pf1'
 
-            pure $ "Scaling PreciseFloat failed with "
-                <> show pf2 <> " " <> show pf1'
+    pure $ "Scaling PreciseFloat failed with "
+        <> show pf2 <> " " <> show pf1'
 
 
 digits :: Array Char
