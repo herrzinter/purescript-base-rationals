@@ -21,14 +21,6 @@ data PreciseFloat = PreciseFloat
     ,   shift         :: Int
     }
 
-fromInt :: Int -> Int -> Int -> Int -> PreciseFloat
-fromInt finit infinit infinitLength shift =
-    PreciseFloat  {   finit   : BI.fromInt finit
-                  ,   infinit : BI.fromInt infinit
-                  ,   infinitLength
-                  ,   shift
-                  }
-
 instance showPreciseFloat :: Show PreciseFloat where
     show (PreciseFloat dr) =
         "{finit : " <> toString dr.finit
@@ -37,6 +29,15 @@ instance showPreciseFloat :: Show PreciseFloat where
         <> ", shift : " <> show dr.shift <> "}"
 
 derive instance eqPreciseFloat :: Eq PreciseFloat
+
+
+fromInt :: Int -> Int -> Int -> Int -> PreciseFloat
+fromInt finit infinit infinitLength shift =
+    PreciseFloat  {   finit   : BI.fromInt finit
+                  ,   infinit : BI.fromInt infinit
+                  ,   infinitLength
+                  ,   shift
+                  }
 
 fromRatio :: Ratio BigInt -> PreciseFloat
 fromRatio ratio = loop (numerator' * ten) Nil Nil zero
