@@ -83,11 +83,13 @@ createBasisFunctions digitsArray
         pure (-ratio)
     fromCharList basis cs
         | 1 < basis && basis <= basisMax = do
-            let point = fromMaybe (length cs) ('.' `elemIndex` cs)
+            let point = case '.' `elemIndex` cs of
+                    Just i  -> i + one
+                    Nothing -> length cs
             let shift = BI.fromInt (length cs - point)
             let cs' = filter (\c -> c /= '.') cs
 
-            numerator <- parseDigits' basisBI (reverse cs')
+            numerator <- parseDigits' basisBI cs'
             let denominator = basisBI `pow` shift
 
             pure $ Ratio numerator denominator
@@ -158,7 +160,7 @@ parseDigits
     -> BigInt               -- Basis
     -> List Char            -- Input characters
     -> Either String BigInt -- Error or parsed number
-parseDigits digits basis cs0 = loop cs0 zero zero
+parseDigits digits basis cs0 = loop (reverse cs0) zero zero
   where
     loop (c : cs) accumulator position  = do
         digitValue <- note
