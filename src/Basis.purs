@@ -104,36 +104,19 @@ fromCharList digits basis cs = do
     pure $ Ratio numerator (basisBI `pow` shift)
 
 toCharList :: List Char -> Int -> Ratio BigInt -> Either String (List Char)
-toCharList digits basis ratio@(Ratio numerator denominator) = do
+toCharList digits basis ratio = do
+    let basisBI = BI.fromInt basis
     -- Seperate the *propper* part of the fraction and the
     -- *remainder*
-    let propper = abs $ numerator / denominator
-    let remainder = ratio - (Ratio propper one)
+    let {propper, remainder} = propperize ratio
 
     -- Calculate *pre* and *post* radix chars
-    pre <- loop Nil propper
-    post <- getPost digits basisBI (fromRatio remainder)
+    pre <- preFromPropper digits basisBI propper
+    post <- postFromRemainder digits basisBI (fromRatio remainder)
     let cs = pre <> (Cons '.' Nil) <> post
 
     -- TODO Alter chars for display
     note "String is empty" (cleanString cs)
-  where
-    basisBI = BI.fromInt basis
-    -- Calculate a string representation of `dividend` in `basis`
-    loop :: List Char -- Accumulator for output string
-         -> BigInt    -- Accumulator for number
-         -> Either String (List Char)
-    loop cs dividend
-        | dividend >= one = do
-            -- Calculate quotient and remainder of division by
-            -- basis
-            let remainder = dividend `mod` basisBI
-            let quotient = (dividend - remainder) / basisBI
-            -- Get Corresponding digit character
-            c <- lookupDigits digits remainder
-
-            loop (c : cs) quotient
-        | otherwise = Right cs
 
 cleanString :: List Char -> Maybe (List Char)
 cleanString cs = do
@@ -164,12 +147,31 @@ parseDigits digits basis cs0 = loop (reverse cs0) zero zero
         loop cs (accumulator + delta) (position + one)
     loop  _       accumulator _         = pure accumulator
 
-getPost
+preFromPropper
+    :: List Char -- Digits
+    -> BigInt    -- Basis
+    -> BigInt    -- Propper
+    -> Either String (List Char)
+preFromPropper digits basis propper = loop Nil propper
+  where
+    loop cs dividend
+      | dividend >= one = do
+          -- Calculate quotient and remainder of division by
+          -- basis
+          let remainder = dividend `mod` basis
+          let quotient = (dividend - remainder) / basis
+          -- Get Corresponding digit character
+          c <- lookupDigits digits remainder
+
+          loop (c : cs) quotient
+      | otherwise = Right cs
+
+postFromRemainder
     :: List Char                  -- Digits
     -> BigInt                     -- Base
     -> PreciseFloat               -- Remainder
     -> Either String (List Char)  -- Post radix string
-getPost digits basis pf0 = tailRecM3 loop Nil Nil (pf0 `scale` basis)
+postFromRemainder digits basis pf0 = tailRecM3 loop Nil Nil (pf0 `scale` basis)
   where
     loop
         :: List PreciseFloat  -- Intermediate values to check for reccurence
@@ -216,9 +218,9 @@ factorize factors number
                     factorizeRecursive (f : fs) factorization'
                       where
                         factorization' =
-                            {   factors     : (f : factorization.factors)
-                            ,   remainder   : (factorization.remainder / f)
-                            }
+                          { factors: (f : factorization.factors)
+                          , remainder: (factorization.remainder / f)
+                          }
                 | otherwise =
                 factorizeRecursive fs factorization
             factorizeRecursive _ factorization = factorization
