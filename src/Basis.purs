@@ -179,17 +179,16 @@ getPost digits basis pf0 = tailRecM3 loop Nil Nil (pf0 `scale` basis)
         | combineParts pf /= zero = case pf `elemIndex` pfs  of
             Nothing -> do
                 -- Calculate index *i* and lookup corresponding char *c*
-                let shift = one `shiftLeft` (pfr.shift - pfr.infinitLength)
-                let iBI = pfr.finit / shift
+                let n = pfr.shift - pfr.infinitLength
+                let iBI = pfr.finit `stripNDigitsOnTheRight` n
                 c <- lookupDigits digits iBI
+                let finit' = pfr.finit - iBI `appendNZerosOnTheRight` n
 
-                -- Update finit part according to index *i*
-                let pfr' = pfr {finit = pfr.finit - iBI * shift}
-
-                pure $ Loop $ {   a: (pf : pfs)
-                              ,   b: (c : cs)
-                              ,   c: (PreciseFloat pfr') `scale` basis
-                              }
+                pure $ Loop
+                    { a: (pf : pfs)
+                    , b: (c : cs)
+                    , c: (PreciseFloat pfr {finit = finit'}) `scale` basis
+                    }
             -- Recurrence -> return with parantheses marking recurrence
             Just i ->
                 let i' = length pfs - i - one

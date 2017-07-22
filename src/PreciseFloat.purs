@@ -30,7 +30,7 @@ derive instance eqPreciseFloat :: Eq PreciseFloat
 
 
 fromRatio :: Ratio BigInt -> PreciseFloat
-fromRatio ratio = loop zero (num0 `shiftLeft` one) Nil zero
+fromRatio ratio = loop zero (num0 `appendNZerosOnTheRight` one) Nil zero
   where
     -- Seperate whole/propper part from remainder as algorithm fails to work
     -- with improper ratios
@@ -50,26 +50,25 @@ fromRatio ratio = loop zero (num0 `shiftLeft` one) Nil zero
                   remainder = num `mod` den
                   -- Append the *quotient* on the left of the acc eg.
                   -- acc = 123, quotient = 0 -> acc' = 1234
-                  acc' = acc `shiftLeft` one + quotient
+                  acc' = acc `appendNZerosOnTheRight` one + quotient
                   -- The remainder is shifted and applied to the loop
-                  num' = remainder `shiftLeft` one
+                  num' = remainder `appendNZerosOnTheRight` one
               in loop (shift + one) num' (num : nums) acc'
             -- Numerator from *i* steps before recurrs
             Just i ->
-              let iBI = BI.fromInt i + one
-                  -- This replaces the i digits on the right by zeros eg.
-                  -- accumulator = 123456, iBI 2 -> 123400
-                  finitPartOfAcc = acc `shiftRight` iBI
-                  propper' = propper `shiftLeft` shift `shiftRight` iBI
+              let il = BI.fromInt i + one
+                  finitPartOfAcc = acc `stripNDigitsOnTheRight` il
+                  finit = finitPartOfAcc
+                        + propper `appendNZerosOnTheRight` (shift - il)
               in  PreciseFloat
-                    { finit : finitPartOfAcc + propper'
-                    , infinit: acc - finitPartOfAcc `shiftLeft` iBI
-                    , infinitLength: iBI
+                    { finit
+                    , infinit: acc - finitPartOfAcc `appendNZerosOnTheRight` il
+                    , infinitLength: il
                     , shift
                     }
         -- Numerator is zero -> no recurrence, infinit part equals zero
         | otherwise = PreciseFloat
-          { finit: acc + propper `shiftLeft` shift
+          { finit: acc + propper `appendNZerosOnTheRight` shift
           , infinit: zero
           , shift
           , infinitLength: zero
@@ -80,8 +79,8 @@ toRatio pf@(PreciseFloat pfr)
     | not $ isRecurring pf = Ratio pfr.finit (ten `pow` pfr.shift)
     | otherwise            = Ratio num den
       where
-        num = (combineParts pf - pfr.finit) `shiftLeft` pfr.infinitLength
-        den = (ten `pow` pfr.infinitLength - one) `shiftLeft` pfr.shift
+        num = combineParts pf - pfr.finit
+        den = ten `pow` pfr.shift - ten `pow` (pfr.shift - pfr.infinitLength)
 
 isRecurring :: PreciseFloat -> Boolean
 isRecurring (PreciseFloat pfr) = pfr.infinit /= zero
@@ -93,18 +92,18 @@ scale pf factor = fromRatio $ Ratio (num * factor) den
 
 combineParts :: PreciseFloat -> BigInt
 combineParts (PreciseFloat pfr) =
-    pfr.finit `shiftLeft` pfr.infinitLength + pfr.infinit
+    pfr.finit `appendNZerosOnTheRight` pfr.infinitLength + pfr.infinit
 
 
 -- Helpers
 
 ten = BI.fromInt 10 :: BigInt
 
-shiftLeft :: BigInt -> BigInt -> BigInt
-shiftLeft value shift  = value * (ten `pow` shift)
+appendNZerosOnTheRight :: BigInt -> BigInt -> BigInt
+appendNZerosOnTheRight value shift  = value * (ten `pow` shift)
 
-shiftRight :: BigInt -> BigInt -> BigInt
-shiftRight value shift = value / (ten `pow` shift)
+stripNDigitsOnTheRight :: BigInt -> BigInt -> BigInt
+stripNDigitsOnTheRight value shift = value / (ten `pow` shift)
 
 propperize :: Ratio BigInt -> {propper :: BigInt, remainder :: Ratio BigInt}
 propperize ratio@(Ratio num den) = {propper, remainder}
