@@ -19,7 +19,7 @@ import Data.List (List(..), length, init, take, drop, filter, elemIndex, index,
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Either (Either(..))
 import Control.Error.Util (note)
-import Control.Monad.Rec.Class (Step(..), tailRecM, class MonadRec)
+import Control.Monad.Rec.Class (Step(..), tailRecM3)
 
 
 type BasisFunctions =
@@ -98,10 +98,6 @@ createBasisFunctions digitsArray
     toString basis ratio@(Ratio numerator denominator)
         | basis > basisMax = Left $ "Basis exceeds " <> show basis
         | otherwise = do
-            finit <- note
-                "Failed to check if number is finit in output base"
-                (isFinit basis ratio)
-
             -- Seperate the *propper* part of the fraction and the
             -- *remainder*
             let propper = abs $ numerator / denominator
@@ -109,7 +105,7 @@ createBasisFunctions digitsArray
 
             -- Calculate *pre* and *post* radix chars
             pre <- stringFromBase Nil propper
-            post <- getPost digits basis finit (fromRatio remainder)
+            post <- getPost digits basisBI (fromRatio remainder)
             let string = pre <> (Cons '.' Nil) <> post
 
             -- TODO Alter chars for display
@@ -117,7 +113,7 @@ createBasisFunctions digitsArray
 
             pure <<< String.fromCharArray <<< List.toUnfoldable $ string'
           where
-            basisbi = BI.fromInt basis
+            basisBI = BI.fromInt basis
             -- Calculate a string representation of `dividend` in `basis`
             stringFromBase :: List Char -- Accumulator for output string
                            -> BigInt    -- Accumulator for number
@@ -126,8 +122,8 @@ createBasisFunctions digitsArray
                 | dividend >= one = do
                     -- Calculate quotient and remainder of division by
                     -- basis
-                    let remainder = dividend `mod` basisbi
-                    let quotient = (dividend - remainder) / basisbi
+                    let remainder = dividend `mod` basisBI
+                    let quotient = (dividend - remainder) / basisBI
                     -- Get Corresponding digit character
                     c <- lookupDigits digits remainder
 
@@ -169,74 +165,45 @@ parseDigits digits basis cs0 = loop (reverse cs0) zero zero
 
 getPost
     :: List Char                  -- Digits
-    -> Int                        -- Base
-    -> Boolean                    -- Is the number reccurrent in the output base
+    -> BigInt                     -- Base
     -> PreciseFloat               -- Remainder
     -> Either String (List Char)  -- Post radix string
-getPost digits basis isFinit pf0 = tailRecM4 loop zero Nil Nil pf0
+getPost digits basis pf0 = tailRecM3 loop Nil Nil (pf0 `scale` basis)
   where
-    basisBI = BI.fromInt basis
-    lookupDigits' = lookupDigits digits
-
     loop
-        :: BigInt             -- Counter
-        -> List PreciseFloat  -- Intermediate values to check for reccurence
-        -> List Char          -- Accumulator for the output string
+        :: List PreciseFloat  -- Intermediate values to check for reccurence
+        -> List Char          -- Accumulator for the output characters
         -> PreciseFloat       -- Intermediate value
-        -> Either String (Step {a::BigInt, b::List PreciseFloat, c::(List Char), d::(PreciseFloat)} (List Char))  -- Output String
-    loop j fs cs pf@(PreciseFloat float)
-        -- If the finit part of the precise float is zero, then everything has
-        -- been expressed in the output string -> Return
-        | combineParts pf == zero  = Right $ Done $ reverse cs
-        -- Otherwise, try to express yet more of the intermediate value in
-        -- a character in the output base
-        -- | otherwise = case (if ((fromMaybe '1' (head cs)) == '0') then Nothing else (float.finit + float.infinit) `elemIndex` fs)  of
-        | otherwise = case pf `elemIndex` fs  of
-            -- Recurrence -> return with parantheses marking recurrence
-             Just i ->
-              let
-                i_drop  = length fs - i - one
-                cs' = reverse cs
-              in
-                -- Right $ Done $ Array.toUnfoldable $ String.toCharArray $ show $ pf : fs
-                Right $ Done $ take i_drop cs' <> (Cons '[' Nil) <> drop i_drop cs' <> (Cons ']' Nil)
-            -- No recurrence -> calculate next step
-             Nothing -> do
-                -- Update float based on calculations with the infinit part
-                let (PreciseFloat float') = (PreciseFloat float) `scale` basisBI
-
-                -- Calculate index *i* and corresponding char *c*
-                let shift = one `shiftLeft` float'.shift `shiftRight` float'.infinitLength
-                let iBI = float'.finit / shift
-                c <- lookupDigits' iBI
+        -> Either String _
+    loop pfs cs pf@(PreciseFloat pfr)
+        | combineParts pf /= zero = case pf `elemIndex` pfs  of
+            Nothing -> do
+                -- Calculate index *i* and lookup corresponding char *c*
+                let shift = one `shiftLeft` (pfr.shift - pfr.infinitLength)
+                let iBI = pfr.finit / shift
+                c <- lookupDigits digits iBI
 
                 -- Update finit part according to index *i*
-                let float'' = float' {finit = float'.finit - iBI * shift}
-                -- pure $ Done $ Array.toUnfoldable $ String.toCharArray $ show (PreciseFloat float')
-                pure $ Loop $ {   a: (j + one)
-                              ,   b: ((PreciseFloat float) : fs)
-                              ,   c: (c : cs)
-                              ,   d: (PreciseFloat float'')
+                let pfr' = pfr {finit = pfr.finit - iBI * shift}
+
+                pure $ Loop $ {   a: (pf : pfs)
+                              ,   b: (c : cs)
+                              ,   c: (PreciseFloat pfr') `scale` basis
                               }
+            -- Recurrence -> return with parantheses marking recurrence
+            Just i ->
+                let i' = length pfs - i - one
+                    cs' = reverse cs
+                    finitChars = take i' cs'
+                    infinitChars = ('[' : Nil) <> (drop i' cs') <> (']' : Nil)
+                in  pure $ Done (finitChars <> infinitChars)
+        | otherwise = pure $ Done $ reverse cs
 
 lookupDigits :: List Char -> BigInt -> Either String Char
 lookupDigits digits iBI = do
     i <- note "Failed to convert numbers" (Int.fromNumber $ toNumber iBI)
     c <- note "Failed to lookup character" (digits `index` i)
     pure c
-
-
-tailRecM4
-  :: forall m a b c d e
-   . MonadRec m
-  => (a -> b -> c -> d -> m (Step { a :: a, b :: b, c :: c, d :: d } e))
-  -> a
-  -> b
-  -> c
-  -> d
-  -> m e
-tailRecM4 f a b c d = tailRecM (\o -> f o.a o.b o.c o.d) { a, b, c, d}
-
 
 -- | Factorize a member of an euclidian ring by a list of factors
 factorize
