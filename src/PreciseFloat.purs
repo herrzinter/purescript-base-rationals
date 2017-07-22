@@ -2,16 +2,14 @@ module PreciseFloat where
 
 
 import Prelude
+
 import Data.String as String
-import Data.Array as Array
 import Data.BigInt as BI
 
-import Data.BigInt (BigInt(..), fromString, pow, toString)
-import Data.Ratio (Ratio(..), denominator, numerator, gcd)
-import Data.List (List(..), elemIndex, drop, dropWhile, length, reverse, snoc, (:))
-import Data.Maybe (Maybe(..), fromMaybe)
-import Data.Either (Either (..))
-import Control.Error.Util (note)
+import Data.BigInt (BigInt(..), pow)
+import Data.Ratio (Ratio(..))
+import Data.List (List(..), elemIndex, (:))
+import Data.Maybe (Maybe(..))
 
 
 data PreciseFloat = PreciseFloat
@@ -22,9 +20,9 @@ data PreciseFloat = PreciseFloat
   }
 
 instance showPreciseFloat :: Show PreciseFloat where
-    show (PreciseFloat pfr) = "{f:" <> toString pfr.finit
-        <> "i:" <> toString pfr.infinit
-        <> "s:" <> toString pfr.shift
+    show (PreciseFloat pfr) = "{f:" <> BI.toString pfr.finit
+        <> "i:" <> BI.toString pfr.infinit
+        <> "s:" <> BI.toString pfr.shift
         <> "il:" <> show pfr.infinitLength
 
 derive instance eqPreciseFloat :: Eq PreciseFloat
@@ -102,15 +100,6 @@ shiftLeft value shift  = value * (ten `pow` shift)
 
 shiftRight :: BigInt -> BigInt -> BigInt
 shiftRight value shift = value / (ten `pow` shift)
-
-fromCharList :: List Char -> Either String BigInt
-fromCharList = note "Could not convert (List Char) to BigInt"
-    <<< fromString
-    <<< String.fromCharArray
-    <<< Array.fromFoldable
-
-fromBigInt :: BigInt -> List Char
-fromBigInt = Array.toUnfoldable <<< String.toCharArray <<< toString
 
 propperize :: Ratio BigInt -> {propper :: BigInt, remainder :: Ratio BigInt}
 propperize ratio@(Ratio num den) = {propper, remainder}
