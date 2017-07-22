@@ -158,7 +158,7 @@ parseDigits digits basis cs0 = loop (reverse cs0) zero zero
   where
     loop (c : cs) accumulator position  = do
         digitValue <- note
-            ("Failed to lookup character '" <> show c <> "'")
+            ("Failed to lookup " <> show c <> " in digits " <> show digits)
             (c `elemIndex` digits)
 
         let positionValue = basis `pow` position
