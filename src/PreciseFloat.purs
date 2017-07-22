@@ -79,7 +79,7 @@ toRatio pf@(PreciseFloat pfr)
     | not $ isRecurring pf = Ratio pfr.finit (ten `pow` pfr.shift)
     | otherwise            = Ratio num den
       where
-        num = combineParts pf - pfr.finit
+        num = toDigitsBI pf - pfr.finit
         den = ten `pow` pfr.shift - ten `pow` (pfr.shift - pfr.infinitLength)
 
 isRecurring :: PreciseFloat -> Boolean
@@ -90,8 +90,8 @@ scale pf factor = fromRatio $ Ratio (num * factor) den
   where
     (Ratio num den) = toRatio pf
 
-combineParts :: PreciseFloat -> BigInt
-combineParts (PreciseFloat pfr) =
+toDigitsBI :: PreciseFloat -> BigInt
+toDigitsBI (PreciseFloat pfr) =
     pfr.finit `appendNZerosOnTheRight` pfr.infinitLength + pfr.infinit
 
 
