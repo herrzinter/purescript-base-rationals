@@ -277,15 +277,3 @@ calculatePrimes maximum
                     calculatePrimes' (number + one) (number : primes)
         in calculatePrimes' (one + one) Nil
     | otherwise = Nil
-
-
--- Helpers
-
-fromCharList :: List Char -> Either String BigInt
-fromCharList = note "Could not convert (List Char) to BigInt"
-    <<< fromString
-    <<< String.fromCharArray
-    <<< Array.fromFoldable
-
-fromBigInt :: BigInt -> List Char
-fromBigInt = Array.toUnfoldable <<< String.toCharArray <<< toString
