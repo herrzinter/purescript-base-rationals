@@ -191,7 +191,7 @@ getPost digits basis isFinit pf0 = tailRecM4 loop zero Nil Nil pf0
     loop j fs cs pf@(PreciseFloat float)
         -- If the finit part of the precise float is zero, then everything has
         -- been expressed in the output string -> Return
-        | (float.finit + float.infinit) == zero  = Right $ Done $ reverse cs
+        | combineParts pf == zero  = Right $ Done $ reverse cs
         -- Otherwise, try to express yet more of the intermediate value in
         -- a character in the output base
         -- | otherwise = case (if ((fromMaybe '1' (head cs)) == '0') then Nothing else (float.finit + float.infinit) `elemIndex` fs)  of
@@ -210,7 +210,7 @@ getPost digits basis isFinit pf0 = tailRecM4 loop zero Nil Nil pf0
                 let (PreciseFloat float') = (PreciseFloat float) `scale` basisBI
 
                 -- Calculate index *i* and corresponding char *c*
-                let shift = ten `pow` float'.shift
+                let shift = one `shiftLeft` float'.shift `shiftRight` float'.infinitLength
                 let iBI = float'.finit / shift
                 c <- lookupDigits' iBI
 

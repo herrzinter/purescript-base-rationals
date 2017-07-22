@@ -27,8 +27,8 @@ pfFromRatioTestArray =
     ,   PFFromRatioTestInt     1230 10            123 0 0 0
     ,   PFFromRatioTestInt     5 11               0 45 2 2
     ,   PFFromRatioTestInt     10000 10           1000 0 0 0
-    ,   PFFromRatioTestString "123189" "35"       "35196000000" "857142" 6 7
-    ,   PFFromRatioTestString "89701389" "35"     "25628968000000" "285714" 6 7
+    ,   PFFromRatioTestString "123189" "35"       "35196" "857142" 6 7
+    ,   PFFromRatioTestString "89701389" "35"     "25628968" "285714" 6 7
     ,   PFFromRatioTestInt     10 13              0 769230 6 6
     ]
 
@@ -42,16 +42,18 @@ readPFFromRatioTest (PFFromRatioTestString ns ds fs is ils s) = do
     d <- fromString ds
     finit <- fromString fs
     infinit <- fromString is
+    let infinitLength = fromInt ils
     let shift = fromInt s
 
-    let pf' = PreciseFloat {finit, infinit, infinitLength : ils, shift}
+    let pf' = PreciseFloat {finit, infinit, infinitLength, shift}
     let r   = Ratio n d
 
     pure {r, pf'}
-readPFFromRatioTest (PFFromRatioTestInt n d f i infinitLength s) = do
+readPFFromRatioTest (PFFromRatioTestInt n d f i ils s) = do
     let finit   = fromInt f
     let infinit = fromInt i
     let shift = fromInt s
+    let infinitLength = fromInt ils
 
     let pf' = PreciseFloat {finit, infinit, infinitLength, shift}
     let r   = Ratio (fromInt n) (fromInt d)
@@ -66,19 +68,20 @@ testPfFromRatio = do
         Just {r, pf'}  -> do
             let pf = fromRatio r
             guard $ pf /= pf'
-            pure $ "Creating PreciseFloat failed with " <> show pf <> show pf'
+            pure $ "Creating PreciseFloat failed with " <> show pf
+                <> " should be " <> show pf'
 
 
 pfScalingTestArray =
     [   PfScalingTestInt 0 0 0 0        0 0 0 0            30493
     ,   PfScalingTestInt 7891 0 0 0     72510399 0 0 0     9189
-    ,   PfScalingTestInt 120 1 1 1      109 0 0 0          9
-    ,   PfScalingTestInt 1030 2 1 2     3090 6 1 2         3
+    ,   PfScalingTestInt 12 1 1 1       109 0 0 0          9
+    ,   PfScalingTestInt 103 2 1 2      309 6 1 2         3
     ,   PfScalingTestInt 0 1 1 5        0 1 1 3            100
     ,   PfScalingTestInt 0 12 2 2       0 36 2 2           3
-    ,   PfScalingTestInt 0 45 2 2       100 36 2 2         3
-    ,   PfScalingTestInt 57000 819 3 7  520436000 198 3 7  9001
-    ,   PfScalingTestInt 0 3 1 1        30 3 1 1           10
+    ,   PfScalingTestInt 0 45 2 2       1 36 2 2         3
+    ,   PfScalingTestInt 57 819 3 7     520436 198 3 7  9001
+    ,   PfScalingTestInt 0 3 1 1        3 3 1 1           10
     ,   PfScalingTestInt 1 0 0 1        1 0 0 0            10
     ,   PfScalingTestInt 0 76923 6 6    0 769230 6 6       10
     ]
@@ -91,13 +94,13 @@ readPfScalingTest (PfScalingTestInt f1 i1 il1 s1   f2 i2 il2 s2 factor) =
     pf1 = PreciseFloat
         {   finit         : fromInt f1
         ,   infinit       : fromInt i1
-        ,   infinitLength : il1
+        ,   infinitLength : fromInt il1
         ,   shift         : fromInt s1
         }
     pf2 = PreciseFloat
         {   finit         : fromInt f2
         ,   infinit       : fromInt i2
-        ,   infinitLength : il2
+        ,   infinitLength : fromInt il2
         ,   shift         : fromInt s2
         }
 
@@ -115,7 +118,7 @@ testPfScaling = do
     guard $ pf2 /= pf1'
 
     pure $ "Scaling PreciseFloat failed with "
-        <> show pf2 <> " " <> show pf1'
+        <> show pf1' <> " should be " <> show pf2
 
 
 digits :: Array Char
@@ -217,8 +220,8 @@ main :: forall e. Eff (console :: CONSOLE | e) Unit
 main = do
   case createBasisFunctions digits of
       Just {fromString, toString, isFinit} -> do
-          let tests = testPfScaling
-                    <> testPfFromRatio
+          let tests =  testPfFromRatio
+                    <> testPfScaling
                     <> testToString toString
                     <> testFromString fromString
           log $ foldl (\a s -> a <> "\n" <> s) "" tests

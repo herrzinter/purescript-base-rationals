@@ -15,15 +15,16 @@ import Data.Maybe (Maybe(..))
 data PreciseFloat = PreciseFloat
   { finit         :: BigInt
   , infinit       :: BigInt
-  , infinitLength :: Int
+  , infinitLength :: BigInt
   , shift         :: BigInt
   }
 
 instance showPreciseFloat :: Show PreciseFloat where
     show (PreciseFloat pfr) = "{f:" <> BI.toString pfr.finit
-        <> "i:" <> BI.toString pfr.infinit
-        <> "s:" <> BI.toString pfr.shift
-        <> "il:" <> show pfr.infinitLength
+        <> " i:" <> BI.toString pfr.infinit
+        <> " s:" <> BI.toString pfr.shift
+        <> " il:" <> BI.toString pfr.infinitLength
+        <> "}"
 
 derive instance eqPreciseFloat :: Eq PreciseFloat
 
@@ -58,11 +59,12 @@ fromRatio ratio = loop zero (num0 `shiftLeft` one) Nil zero
               let iBI = BI.fromInt i + one
                   -- This replaces the i digits on the right by zeros eg.
                   -- accumulator = 123456, iBI 2 -> 123400
-                  finitPartOfAcc = acc `shiftRight` iBI `shiftLeft` iBI
+                  finitPartOfAcc = acc `shiftRight` iBI
+                  propper' = propper `shiftLeft` shift `shiftRight` iBI
               in  PreciseFloat
-                    { finit : finitPartOfAcc + propper `shiftLeft` shift
-                    , infinit: acc - finitPartOfAcc
-                    , infinitLength: i + one
+                    { finit : finitPartOfAcc + propper'
+                    , infinit: acc - finitPartOfAcc `shiftLeft` iBI
+                    , infinitLength: iBI
                     , shift
                     }
         -- Numerator is zero -> no recurrence, infinit part equals zero
@@ -78,9 +80,8 @@ toRatio pf@(PreciseFloat pfr)
     | not $ isRecurring pf = Ratio pfr.finit (ten `pow` pfr.shift)
     | otherwise            = Ratio num den
       where
-        il = BI.fromInt pfr.infinitLength
-        num = (pfr.finit + pfr.infinit) `shiftLeft` il - pfr.finit
-        den = (ten `pow` il - one) `shiftLeft` pfr.shift
+        num = (combineParts pf - pfr.finit) `shiftLeft` pfr.infinitLength
+        den = (ten `pow` pfr.infinitLength - one) `shiftLeft` pfr.shift
 
 isRecurring :: PreciseFloat -> Boolean
 isRecurring (PreciseFloat pfr) = pfr.infinit /= zero
@@ -89,6 +90,10 @@ scale :: PreciseFloat -> BigInt -> PreciseFloat
 scale pf factor = fromRatio $ Ratio (num * factor) den
   where
     (Ratio num den) = toRatio pf
+
+combineParts :: PreciseFloat -> BigInt
+combineParts (PreciseFloat pfr) =
+    pfr.finit `shiftLeft` pfr.infinitLength + pfr.infinit
 
 
 -- Helpers
