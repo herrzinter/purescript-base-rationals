@@ -69,9 +69,6 @@ createBasisFunctions digitsArray
                 | number `mod` factor == zero = factorizeMany (number / factor) factor
                 | otherwise                   = number
 
-
-    parseDigits' = parseDigits digits
-
     fromString :: Int -> String -> Either String (Ratio BigInt)
     fromString basis =
         fromCharList basis <<< List.fromFoldable <<< String.toCharArray
@@ -89,16 +86,13 @@ createBasisFunctions digitsArray
             let shift = BI.fromInt (length cs - point)
             let cs' = filter (\c -> c /= '.') cs
 
-            numerator <- parseDigits' basisBI cs'
+            numerator <- parseDigits digits basisBI cs'
             let denominator = basisBI `pow` shift
 
             pure $ Ratio numerator denominator
           where
             basisBI = BI.fromInt basis
         | otherwise = Left $ "Basis not between 1 and " <> show basisMax
-
-    getPost' = getPost digits
-    lookupDigits' = lookupDigits digits
 
     toString :: Int -> Ratio BigInt ->  Either String String
     toString basis ratio@(Ratio numerator denominator)
@@ -115,7 +109,7 @@ createBasisFunctions digitsArray
 
             -- Calculate *pre* and *post* radix chars
             pre <- stringFromBase Nil propper
-            post <- getPost' basis finit (fromRatio remainder)
+            post <- getPost digits basis finit (fromRatio remainder)
             let string = pre <> (Cons '.' Nil) <> post
 
             -- TODO Alter chars for display
@@ -135,7 +129,7 @@ createBasisFunctions digitsArray
                     let remainder = dividend `mod` basisbi
                     let quotient = (dividend - remainder) / basisbi
                     -- Get Corresponding digit character
-                    c <- lookupDigits' remainder
+                    c <- lookupDigits digits remainder
 
                     stringFromBase (c : cs) quotient
                 | otherwise = Right cs
