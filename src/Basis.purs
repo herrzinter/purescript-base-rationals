@@ -32,10 +32,10 @@ type BasisFunctions =
 isValidDigitArray :: Array Char -> Boolean
 isValidDigitArray digitArray = Array.length digitArray >= 2
 
-createBasisFunctions :: Array Char -> Maybe BasisFunctions
-createBasisFunctions digitsArray
+functionsFromDigitArray :: Array Char -> Maybe BasisFunctions
+functionsFromDigitArray digitsArray
     | not $ isValidDigitArray digitsArray = Nothing
-    | otherwise                           = Just basisFunctions
+    | otherwise                           = Just {isFinit, fromString, toString}
   where
     digits = List.fromFoldable digitsArray
     basisMax = length digits
@@ -69,81 +69,82 @@ createBasisFunctions digitsArray
                 | number `mod` factor == zero = factorizeMany (number / factor) factor
                 | otherwise                   = number
 
+
     fromString :: Int -> String -> Either String (Ratio BigInt)
-    fromString basis =
-        fromCharList basis <<< List.fromFoldable <<< String.toCharArray
+    fromString basis string
+        | 1 < basis && basis <= basisMax =
+            let cs = List.fromFoldable $ String.toCharArray $ string
+            in  fromCharList digits basis cs
+        | otherwise = Left $
+            "Basis not between 1 and " <> show basisMax
 
-    -- Match possible negative sign, parse remaining chars and negate result
-    fromCharList :: Int -> List Char -> Either String (Ratio BigInt)
-    fromCharList basis ('-' : cs) = do
-        ratio <- fromCharList basis cs
-        pure (-ratio)
-    fromCharList basis cs
-        | 1 < basis && basis <= basisMax = do
-            let point = case '.' `elemIndex` cs of
-                    Just i  -> i + one
-                    Nothing -> length cs
-            let shift = BI.fromInt (length cs - point)
-            let cs' = filter (\c -> c /= '.') cs
+    toString :: Int -> Ratio BigInt -> Either String String
+    toString basis ratio
+        | basis <= basisMax = do
+            cs <- toCharList digits basis ratio
+            pure $ String.fromCharArray $ List.toUnfoldable $ cs
+        | otherwise = Left $
+            "Basis " <> show basis <> " exceeds maximum basis" <> show basisMax
 
-            numerator <- parseDigits digits basisBI cs'
-            let denominator = basisBI `pow` shift
+-- Match possible negative sign, parse remaining chars and negate result
+fromCharList :: List Char -> Int -> List Char -> Either String (Ratio BigInt)
+fromCharList digits basis ('-' : cs) = do
+    ratio <- fromCharList digits basis cs
+    pure (-ratio)
+fromCharList digits basis cs = do
+    let basisBI = BI.fromInt basis
+    let point = case '.' `elemIndex` cs of
+            Just i  -> i + one
+            Nothing -> length cs
+    let shift = BI.fromInt (length cs - point)
+    let cs' = filter (\c -> c /= '.') cs
 
-            pure $ Ratio numerator denominator
-          where
-            basisBI = BI.fromInt basis
-        | otherwise = Left $ "Basis not between 1 and " <> show basisMax
+    numerator <- parseDigits digits basisBI cs'
 
-    toString :: Int -> Ratio BigInt ->  Either String String
-    toString basis ratio@(Ratio numerator denominator)
-        | basis > basisMax = Left $ "Basis exceeds " <> show basis
-        | otherwise = do
-            -- Seperate the *propper* part of the fraction and the
-            -- *remainder*
-            let propper = abs $ numerator / denominator
-            let remainder = ratio - (Ratio propper one)
+    pure $ Ratio numerator (basisBI `pow` shift)
 
-            -- Calculate *pre* and *post* radix chars
-            pre <- stringFromBase Nil propper
-            post <- getPost digits basisBI (fromRatio remainder)
-            let string = pre <> (Cons '.' Nil) <> post
+toCharList :: List Char -> Int -> Ratio BigInt -> Either String (List Char)
+toCharList digits basis ratio@(Ratio numerator denominator) = do
+    -- Seperate the *propper* part of the fraction and the
+    -- *remainder*
+    let propper = abs $ numerator / denominator
+    let remainder = ratio - (Ratio propper one)
 
-            -- TODO Alter chars for display
-            string' <- note "String is empty" (cleanString string)
+    -- Calculate *pre* and *post* radix chars
+    pre <- loop Nil propper
+    post <- getPost digits basisBI (fromRatio remainder)
+    let cs = pre <> (Cons '.' Nil) <> post
 
-            pure <<< String.fromCharArray <<< List.toUnfoldable $ string'
-          where
-            basisBI = BI.fromInt basis
-            -- Calculate a string representation of `dividend` in `basis`
-            stringFromBase :: List Char -- Accumulator for output string
-                           -> BigInt    -- Accumulator for number
-                           -> Either String (List Char)
-            stringFromBase cs dividend
-                | dividend >= one = do
-                    -- Calculate quotient and remainder of division by
-                    -- basis
-                    let remainder = dividend `mod` basisBI
-                    let quotient = (dividend - remainder) / basisBI
-                    -- Get Corresponding digit character
-                    c <- lookupDigits digits remainder
+    -- TODO Alter chars for display
+    note "String is empty" (cleanString cs)
+  where
+    basisBI = BI.fromInt basis
+    -- Calculate a string representation of `dividend` in `basis`
+    loop :: List Char -- Accumulator for output string
+         -> BigInt    -- Accumulator for number
+         -> Either String (List Char)
+    loop cs dividend
+        | dividend >= one = do
+            -- Calculate quotient and remainder of division by
+            -- basis
+            let remainder = dividend `mod` basisBI
+            let quotient = (dividend - remainder) / basisBI
+            -- Get Corresponding digit character
+            c <- lookupDigits digits remainder
 
-                    stringFromBase (c : cs) quotient
-                | otherwise = Right cs
+            loop (c : cs) quotient
+        | otherwise = Right cs
 
-            cleanString string = do
-                p <- '.' `elemIndex` string
-                let len = length string
+cleanString :: List Char -> Maybe (List Char)
+cleanString cs = do
+    p <- '.' `elemIndex` cs
+    let len = length cs
 
-                case Nothing of
-                    _ | p == zero && len == one -> Just $ Cons '0' Nil
-                    _ | p == zero               -> Just $ '0' : string
-                      | p == len - one          -> init string
-                      | otherwise               -> Just string
-
-    basisFunctions =    {   fromString  : fromString
-                        ,   toString    : toString
-                        ,   isFinit     : isFinit
-                        }
+    case Nothing of
+        _ | p == zero && len == one -> Just $ Cons '0' Nil
+          | p == zero               -> Just $ '0' : cs
+          | p == len - one          -> init cs
+          | otherwise               -> Just cs
 
 parseDigits
     :: List Char            -- Digits

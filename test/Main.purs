@@ -218,7 +218,7 @@ testFromString fromString' = do
 
 main :: forall e. Eff (console :: CONSOLE | e) Unit
 main = do
-  case createBasisFunctions digits of
+  case functionsFromDigitArray digits of
       Just {fromString, toString, isFinit} -> do
           let tests =  testPfFromRatio
                     <> testPfScaling
