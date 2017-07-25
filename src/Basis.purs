@@ -1,3 +1,4 @@
+
 module Basis where
 
 
@@ -6,14 +7,14 @@ import Prelude
 
 import Data.Int as Int
 import Data.BigInt as BI
-import Data.BigInt (BigInt(..), fromString, pow, toNumber, toString, abs)
-import Data.Ratio (Ratio(..), denominator, numerator)
-import Math (remainder)
-import Data.EuclideanRing (class EuclideanRing)
-import Data.Foldable (any, foldl)
 import Data.String as String
 import Data.Array as Array
 import Data.List as List
+
+import Data.EuclideanRing (class EuclideanRing)
+import Data.BigInt (BigInt(..), fromString, pow, toNumber, toString, abs)
+import Data.Ratio (Ratio(..))
+import Data.Foldable (any, foldl)
 import Data.List (List(..), length, init, take, drop, filter, elemIndex, index,
                   reverse, (:), (..))
 import Data.Maybe (Maybe(..), fromMaybe)

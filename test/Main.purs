@@ -1,22 +1,19 @@
 module Test.Main where
 
-import Basis
-import Data.Maybe
 import Prelude
+import Basis
 
-import Control.Bind ((=<<))
+import Data.Ratio (Ratio(..))
+import Data.List (fromFoldable)
+import Data.Array (foldl)
+import PreciseFloat (PreciseFloat (..), scale, fromRatio)
+import Data.BigInt (BigInt(..), fromInt, fromString, toString)
+import Data.Either (Either(..))
+import Data.Maybe (Maybe (..))
 import Control.Error.Util (note)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE, log)
 import Control.MonadZero (guard)
-import Data.Array (concat, foldl, (..))
-import Data.BigInt (BigInt(..), fromInt, fromString, toString)
-import Data.Either (Either(..))
-import Data.Function (($))
-import Data.List (fromFoldable)
-import Data.Ratio (Ratio(..), numerator, denominator)
-
-import PreciseFloat (PreciseFloat (..), scale, fromRatio)
 
 
 pfFromRatioTestArray =
