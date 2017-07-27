@@ -119,6 +119,8 @@ toCharList digits basis ratio = do
 
 -- Helpers
 
+-- | Convert a list of characters to big integer given a list of digits and a
+-- basis
 biFromCharList
     :: List Char            -- Digits
     -> BigInt               -- Basis
@@ -137,10 +139,16 @@ biFromCharList digits basis cs0 = loop (reverse cs0) zero zero
         loop cs (accumulator + delta) (position + one)
     loop  _       accumulator _         = pure accumulator
 
-lookupDigits :: List Char -> BigInt -> Either String Char
-lookupDigits digits iBI = do
-    i <- note "Failed to convert numbers" (Int.fromNumber $ toNumber iBI)
-    note "Failed to lookup character" (digits `index` i)
+-- | Lookup a character in a list of characters identified by an BigInt index
+biIndex :: List Char -> BigInt -> Either String Char
+biIndex digits iBI = do
+    i <- note
+        ("Failed to convert BigInt index " <> BI.toString iBI <> " to Int")
+        (Int.fromNumber $ toNumber iBI)
+    c <- note
+        ("Failed to lookup index " <> show i <> " in " <> show digits)
+        (digits `index` i)
+    pure c
 
 preFromPropper
     :: List Char -- Digits
@@ -156,7 +164,7 @@ preFromPropper digits basis propper = loop Nil propper
           let remainder = dividend `mod` basis
           let quotient = (dividend - remainder) / basis
           -- Get Corresponding digit character
-          c <- lookupDigits digits remainder
+          c <- digits `biIndex` remainder
 
           loop (c : cs) quotient
       | otherwise = Right cs
@@ -179,7 +187,7 @@ postFromRemainder digits basis pf0 = tailRecM3 loop Nil Nil (pf0 `scale` basis)
                 -- Calculate index *i* and lookup corresponding char *c*
                 let n = pfr.shift - pfr.infinitLength
                 let iBI = pfr.finit `stripNDigitsOnTheRight` n
-                c <- lookupDigits digits iBI
+                c <- digits `biIndex` iBI
                 let finit' = pfr.finit - iBI `appendNZerosOnTheRight` n
 
                 pure $ Loop
