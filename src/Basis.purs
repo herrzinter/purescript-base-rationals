@@ -100,42 +100,31 @@ fromCharList digits basis cs = do
     let shift = BI.fromInt (length cs - point)
     let cs' = filter (\c -> c /= '.') cs
 
-    numerator <- parseDigits digits basisBI cs'
+    numerator <- biFromCharList digits basisBI cs'
 
     pure $ Ratio numerator (basisBI `pow` shift)
 
 toCharList :: List Char -> Int -> Ratio BigInt -> Either String (List Char)
 toCharList digits basis ratio = do
     let basisBI = BI.fromInt basis
-    -- Seperate the *propper* part of the fraction and the
-    -- *remainder*
+    -- Seperate the *propper* part of the fraction and the *remainder*
     let {propper, remainder} = propperize ratio
 
-    -- Calculate *pre* and *post* radix chars
+    -- Get *pre* and *post* radix chars
     pre <- preFromPropper digits basisBI propper
     post <- postFromRemainder digits basisBI (fromRatio remainder)
-    let cs = pre <> (Cons '.' Nil) <> post
 
-    -- TODO Alter chars for display
-    note "String is empty" (cleanString cs)
+    note "String is empty" $ alterCharsForDisplay $ pre <> ('.' : Nil) <> post
 
-cleanString :: List Char -> Maybe (List Char)
-cleanString cs = do
-    p <- '.' `elemIndex` cs
-    let len = length cs
 
-    case Nothing of
-        _ | p == zero && len == one -> Just $ Cons '0' Nil
-          | p == zero               -> Just $ '0' : cs
-          | p == len - one          -> init cs
-          | otherwise               -> Just cs
+-- Helpers
 
-parseDigits
+biFromCharList
     :: List Char            -- Digits
     -> BigInt               -- Basis
     -> List Char            -- Input characters
     -> Either String BigInt -- Error or parsed number
-parseDigits digits basis cs0 = loop (reverse cs0) zero zero
+biFromCharList digits basis cs0 = loop (reverse cs0) zero zero
   where
     loop (c : cs) accumulator position  = do
         digitValue <- note
@@ -147,6 +136,11 @@ parseDigits digits basis cs0 = loop (reverse cs0) zero zero
 
         loop cs (accumulator + delta) (position + one)
     loop  _       accumulator _         = pure accumulator
+
+lookupDigits :: List Char -> BigInt -> Either String Char
+lookupDigits digits iBI = do
+    i <- note "Failed to convert numbers" (Int.fromNumber $ toNumber iBI)
+    note "Failed to lookup character" (digits `index` i)
 
 preFromPropper
     :: List Char -- Digits
@@ -202,11 +196,17 @@ postFromRemainder digits basis pf0 = tailRecM3 loop Nil Nil (pf0 `scale` basis)
                 in  pure $ Done (finitChars <> infinitChars)
         | otherwise = pure $ Done $ reverse cs
 
-lookupDigits :: List Char -> BigInt -> Either String Char
-lookupDigits digits iBI = do
-    i <- note "Failed to convert numbers" (Int.fromNumber $ toNumber iBI)
-    c <- note "Failed to lookup character" (digits `index` i)
-    pure c
+alterCharsForDisplay :: List Char -> Maybe (List Char)
+alterCharsForDisplay cs = do
+    p <- '.' `elemIndex` cs
+    let len = length cs
+
+    case Nothing of
+        _ | p == zero && len == one -> Just $ Cons '0' Nil
+          | p == zero               -> Just $ '0' : cs
+          | p == len - one          -> init cs
+          | otherwise               -> Just cs
+
 
 -- | Factorize a member of an euclidian ring by a list of factors
 factorize
