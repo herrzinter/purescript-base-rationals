@@ -107,12 +107,12 @@ fromCharList digits basis cs = do
 toCharList :: List Char -> Int -> Ratio BigInt -> Either String (List Char)
 toCharList digits basis ratio = do
     let basisBI = BI.fromInt basis
-    -- Seperate the *propper* part of the fraction and the *remainder*
-    let {propper, remainder} = propperize ratio
+    -- Seperate the *whole* part of the fraction and the *propper*
+    let {whole, propper} = toMixedRatio ratio
 
     -- Get *pre* and *post* radix chars
-    pre <- preFromPropper digits basisBI propper
-    post <- postFromRemainder digits basisBI (fromRatio remainder)
+    pre   <- preFromWhole    digits basisBI whole
+    post  <- postFromPropper digits basisBI (fromRatio propper)
 
     note "String is empty" $ alterCharsForDisplay $ pre <> ('.' : Nil) <> post
 
@@ -150,12 +150,12 @@ biIndex digits iBI = do
         (digits `index` i)
     pure c
 
-preFromPropper
+preFromWhole
     :: List Char -- Digits
     -> BigInt    -- Basis
-    -> BigInt    -- Propper
+    -> BigInt    -- Whole number
     -> Either String (List Char)
-preFromPropper digits basis propper = loop Nil propper
+preFromWhole digits basis whole = loop Nil whole
   where
     loop cs dividend
       | dividend >= one = do
@@ -169,12 +169,12 @@ preFromPropper digits basis propper = loop Nil propper
           loop (c : cs) quotient
       | otherwise = Right cs
 
-postFromRemainder
+postFromPropper
     :: List Char                  -- Digits
     -> BigInt                     -- Base
     -> PreciseFloat               -- Remainder
     -> Either String (List Char)  -- Post radix string
-postFromRemainder digits basis pf0 = tailRecM3 loop Nil Nil (pf0 `scale` basis)
+postFromPropper digits basis pf0 = tailRecM3 loop Nil Nil (pf0 `scale` basis)
   where
     loop
         :: List PreciseFloat  -- Intermediate values to check for reccurence

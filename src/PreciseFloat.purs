@@ -34,7 +34,7 @@ fromRatio ratio = loop zero (num0 `appendNZerosOnTheRight` one) Nil zero
   where
     -- Seperate whole/propper part from remainder as algorithm fails to work
     -- with improper ratios
-    {propper, remainder: (Ratio num0 den)} = propperize ratio
+    {whole, propper: (Ratio num0 den)} = toMixedRatio ratio
 
     loop
       :: BigInt       -- Counter representing the shift
@@ -59,7 +59,7 @@ fromRatio ratio = loop zero (num0 `appendNZerosOnTheRight` one) Nil zero
               let il = BI.fromInt i + one
                   finitPartOfAcc = acc `stripNDigitsOnTheRight` il
                   finit = finitPartOfAcc
-                        + propper `appendNZerosOnTheRight` (shift - il)
+                        + whole `appendNZerosOnTheRight` (shift - il)
               in  PreciseFloat
                     { finit
                     , infinit: acc - finitPartOfAcc `appendNZerosOnTheRight` il
@@ -68,7 +68,7 @@ fromRatio ratio = loop zero (num0 `appendNZerosOnTheRight` one) Nil zero
                     }
         -- Numerator is zero -> no recurrence, infinit part equals zero
         | otherwise = PreciseFloat
-          { finit: acc + propper `appendNZerosOnTheRight` shift
+          { finit: acc + whole `appendNZerosOnTheRight` shift
           , infinit: zero
           , shift
           , infinitLength: zero
@@ -105,9 +105,10 @@ appendNZerosOnTheRight value shift  = value * (ten `pow` shift)
 stripNDigitsOnTheRight :: BigInt -> BigInt -> BigInt
 stripNDigitsOnTheRight value shift = value / (ten `pow` shift)
 
-propperize :: Ratio BigInt -> {propper :: BigInt, remainder :: Ratio BigInt}
-propperize ratio@(Ratio num den) = {propper, remainder}
+toMixedRatio :: Ratio BigInt -> {whole :: BigInt, propper :: Ratio BigInt}
+toMixedRatio impropper@(Ratio num den) = {whole, propper}
   where
-    -- Calculate propper part of ratio and substract it to get remainder
-    propper   = num / den
-    remainder = ratio - Ratio propper one
+    -- Calculate whole part of the impropper ratio and substract it to get
+    -- propper ratio
+    whole   = num / den
+    propper = Ratio (num - whole * den) den
