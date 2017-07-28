@@ -70,52 +70,43 @@ functionsFromDigitArray digitsArray
                 | number `mod` factor == zero = factorizeMany (number / factor) factor
                 | otherwise                   = number
 
+    noValidBasisError basis = Left $
+        if    basis < 2
+        then  "Basis " <> show basis <> " smaller than '2'"
+        else  "Basis " <> show basis <> " bigger as max basis " <> show basisMax
 
     fromString :: Int -> String -> Either String (Ratio BigInt)
-    fromString basis string
-        | 1 < basis && basis <= basisMax =
-            let cs = List.fromFoldable $ String.toCharArray $ string
-            in  fromCharList digits basis cs
-        | otherwise = Left $
-            "Basis not between 1 and " <> show basisMax
+    fromString basis string = do
+        unless
+            (1 < basis && basis <= basisMax)
+            (noValidBasisError basis)
+
+        let cs0 = List.fromFoldable $ String.toCharArray $ string
+
+        let {sign, cs: cs1} = splitSign cs0
+        let {shift, cs: cs2} = splitShift cs1
+
+        let basisBI = BI.fromInt basis
+        numerator <- biFromCharList digits basisBI cs2
+        pure $ Ratio (sign * numerator) (basisBI `pow` shift)
 
     toString :: Int -> Ratio BigInt -> Either String String
-    toString basis ratio
-        | basis <= basisMax = do
-            cs <- toCharList digits basis ratio
-            pure $ String.fromCharArray $ List.toUnfoldable $ cs
-        | otherwise = Left $
-            "Basis " <> show basis <> " exceeds maximum basis" <> show basisMax
+    toString basis ratio = do
+        unless
+            (1 < basis && basis <= basisMax)
+            (noValidBasisError basis)
 
--- Match possible negative sign, parse remaining chars and negate result
-fromCharList :: List Char -> Int -> List Char -> Either String (Ratio BigInt)
-fromCharList digits basis ('-' : cs) = do
-    ratio <- fromCharList digits basis cs
-    pure (-ratio)
-fromCharList digits basis cs = do
-    let basisBI = BI.fromInt basis
-    let point = case '.' `elemIndex` cs of
-            Just i  -> i + one
-            Nothing -> length cs
-    let shift = BI.fromInt (length cs - point)
-    let cs' = filter (\c -> c /= '.') cs
+        let basisBI = BI.fromInt basis
+        -- Seperate the *whole* part of the fraction and the *propper*
+        let {whole, propper} = toMixedRatio ratio
+        -- Get *pre* and *post* radix chars
+        pre   <- preFromWhole    digits basisBI whole
+        post  <- postFromPropper digits basisBI (fromRatio propper)
 
-    numerator <- biFromCharList digits basisBI cs'
+        let cs =  pre <> ('.' : Nil) <> post
+        cs' <- note "String is empty" (alterCharsForDisplay cs)
 
-    pure $ Ratio numerator (basisBI `pow` shift)
-
-toCharList :: List Char -> Int -> Ratio BigInt -> Either String (List Char)
-toCharList digits basis ratio = do
-    let basisBI = BI.fromInt basis
-    -- Seperate the *whole* part of the fraction and the *propper*
-    let {whole, propper} = toMixedRatio ratio
-
-    -- Get *pre* and *post* radix chars
-    pre   <- preFromWhole    digits basisBI whole
-    post  <- postFromPropper digits basisBI (fromRatio propper)
-
-    note "String is empty" $ alterCharsForDisplay $ pre <> ('.' : Nil) <> post
-
+        pure $ String.fromCharArray $ List.toUnfoldable $ cs'
 
 -- Helpers
 
@@ -203,6 +194,23 @@ postFromPropper digits basis pf0 = tailRecM3 loop Nil Nil (pf0 `scale` basis)
                     infinitChars = ('[' : Nil) <> (drop i' cs') <> (']' : Nil)
                 in  pure $ Done (finitChars <> infinitChars)
         | otherwise = pure $ Done $ reverse cs
+
+-- | Split a trailing sign from a list of characters, and return sign and
+-- | remaining chars
+splitSign :: List Char -> {sign :: BigInt, cs :: List Char}
+splitSign ('-' : cs)  = {sign: (-one), cs}
+splitSign cs          = {sign:   one , cs}
+
+-- | Remove the radix point from a character representatoin of a number and
+-- | calculate the corresponding shift, eg. "123.45" -> {shift: 2, cs: "12345"}
+splitShift :: List Char -> {shift :: BigInt, cs :: List Char}
+splitShift cs = {shift, cs : filter (\c -> c /= '.') cs}
+  where
+    -- Calculate shift from position of radix point
+    indexOfRadixPoint = case '.' `elemIndex` cs of
+        Just i  -> i + one
+        Nothing -> length cs
+    shift = BI.fromInt (length cs - indexOfRadixPoint)
 
 alterCharsForDisplay :: List Char -> Maybe (List Char)
 alterCharsForDisplay cs = do
