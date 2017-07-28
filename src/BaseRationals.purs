@@ -39,7 +39,16 @@ functionsFromDigitArray digitsArray
     | otherwise                           = Just {isFinit, fromString, toString}
   where
     digits = List.fromFoldable digitsArray
-    basisMax = length digits
+    maximalBasis = length digits
+
+    errorUnlessValidBasis basis = do
+        unless
+            (basis >= 2)
+            (Left $ "Basis " <> show basis <> " smaller than '2'")
+        unless
+            (basis <= maximalBasis)
+            (Left $ "Basis " <> show basis <> " bigger then maximal basis "
+                             <> show maximalBasis)
 
     -- The prime factorizations of all possible basis of a list of digits
     -- is used for several calculations eg. checking, if a fraction has a
@@ -49,16 +58,16 @@ functionsFromDigitArray digitsArray
 
     primeFactorsList :: List (List BigInt)
     primeFactorsList = do
-        basis <- 2 .. basisMax
+        basis <- 2 .. maximalBasis
         let factorization = factorize primes basis
         pure $ map BI.fromInt factorization.factors
       where
-        primes = calculatePrimes basisMax
+        primes = calculatePrimes maximalBasis
 
     getPrimeFactors basis = primeFactorsList `index` (basis - 2)
 
     isFinit basis (Ratio _ denominator)
-        | basis > basisMax = Nothing
+        | basis > maximalBasis = Nothing
         -- If the denominator can be complete factorized by the primefactors
         -- of the current basis, the non-fractional rendering of the
         -- rational is finit
@@ -70,16 +79,9 @@ functionsFromDigitArray digitsArray
                 | number `mod` factor == zero = factorizeMany (number / factor) factor
                 | otherwise                   = number
 
-    noValidBasisError basis = Left $
-        if    basis < 2
-        then  "Basis " <> show basis <> " smaller than '2'"
-        else  "Basis " <> show basis <> " bigger as max basis " <> show basisMax
-
     fromString :: Int -> String -> Either String (Ratio BigInt)
     fromString basis string = do
-        unless
-            (1 < basis && basis <= basisMax)
-            (noValidBasisError basis)
+        errorUnlessValidBasis basis
 
         let cs0 = List.fromFoldable $ String.toCharArray $ string
 
@@ -92,9 +94,7 @@ functionsFromDigitArray digitsArray
 
     toString :: Int -> Ratio BigInt -> Either String String
     toString basis ratio = do
-        unless
-            (1 < basis && basis <= basisMax)
-            (noValidBasisError basis)
+        errorUnlessValidBasis basis
 
         let basisBI = BI.fromInt basis
         -- Seperate the *whole* part of the fraction and the *propper*
