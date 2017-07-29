@@ -16,22 +16,29 @@ import Data.BigInt (BigInt(..), fromString, pow, toNumber, toString, abs)
 import Data.Ratio (Ratio(..))
 import Data.Foldable (any, foldl)
 import Data.List (List(..), length, init, take, drop, filter, elemIndex, index,
-                  reverse, (:), (..))
+                  reverse, (:), (..), elem)
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Either (Either(..))
 import Control.Error.Util (note)
 import Control.Monad.Rec.Class (Step(..), tailRecM3)
 
 
+-- | Is `digitArray` a valid array of digits? It is, if it contains at least
+-- | two digits, as the minimal valid basis is two, and all digits are distinct
+isValidDigitArray :: Array Char -> Boolean
+isValidDigitArray digits = Array.length digits >= 2 && hasNoRepeatingElem digits
+  where
+    hasNoRepeatingElem array = loop (List.fromFoldable array) Nil
+
+    loop (e : es) es' | not $ e `elem` es'  = loop es (e : es')
+                      | otherwise           = false
+    loop _        _                         = true
+
 type BasisFunctions =
     {   isFinit     :: Int -> Ratio BigInt -> Either String Boolean
     ,   fromString  :: Int -> String       -> Either String (Ratio BigInt)
     ,   toString    :: Int -> Ratio BigInt -> Either String String
     }
-
--- Basis smaller equal one do not make sense
-isValidDigitArray :: Array Char -> Boolean
-isValidDigitArray digitArray = Array.length digitArray >= 2
 
 functionsFromDigitArray :: Array Char -> Maybe BasisFunctions
 functionsFromDigitArray digitsArray
