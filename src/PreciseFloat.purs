@@ -1,4 +1,13 @@
-module PreciseFloat where
+module PreciseFloat
+  ( PreciseFloat (..)
+  , fromRatio
+  , toRatio
+  , scale
+  , toDigitsBI
+  , toMixedRatio
+  , appendNZerosOnTheRight
+  , stripNDigitsOnTheRight
+  ) where
 
 
 import Prelude

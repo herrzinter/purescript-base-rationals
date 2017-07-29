@@ -1,5 +1,9 @@
 
-module Basis where
+module Basis
+  ( isValidDigitArray
+  , functionsFromDigitArray
+  ) where
+
 
 
 import PreciseFloat
