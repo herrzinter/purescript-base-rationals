@@ -2,11 +2,13 @@ module PreciseFloat
   ( PreciseFloat (..)
   , fromRatio
   , toRatio
-  , scale
   , isZero
-  , toMixedRatio
+  , isRecurring
+  , scale
+  -- Helpers
   , appendNZerosOnTheRight
   , stripNDigitsOnTheRight
+  , toMixedRatio
   ) where
 
 
