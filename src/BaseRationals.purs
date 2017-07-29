@@ -30,13 +30,8 @@ import Control.Monad.Rec.Class (Step(..), tailRecM3)
 -- | Is `digitArray` a valid array of digits? It is, if it contains at least
 -- | two digits, as the minimal valid basis is two, and all digits are distinct
 isValidDigitArray :: Array Char -> Boolean
-isValidDigitArray digits = Array.length digits >= 2 && hasNoRepeatingElem digits
-  where
-    hasNoRepeatingElem array = loop (List.fromFoldable array) Nil
-
-    loop (e : es) es' | not $ e `elem` es'  = loop es (e : es')
-                      | otherwise           = false
-    loop _        _                         = true
+isValidDigitArray digits =
+    Array.length digits >= 2 && hasNoRepeatingElem (List.fromFoldable digits)
 
 type BasisFunctions =
     {   isFinit     :: Int -> Ratio BigInt -> Either String Boolean
@@ -278,3 +273,11 @@ calculatePrimes maximum
                     calculatePrimes' (number + one) (number : primes)
         in calculatePrimes' (one + one) Nil
     | otherwise = Nil
+
+
+hasNoRepeatingElem :: forall e . Eq e => List e -> Boolean
+hasNoRepeatingElem list = loop list Nil
+  where
+    loop (e : es) es' | not $ e `elem` es'  = loop es (e : es')
+                      | otherwise           = false
+    loop _        _                         = true
