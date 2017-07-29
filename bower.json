@@ -14,7 +14,8 @@
     "purescript-integers": "3.0.0",
     "purescript-rationals" : "herrzinter/purescript-rationals#0f823b39028ab42b1be743ac33bfa695c7c3e9ad",
     "purescript-errors" : "3.0.0",
-    "purescript-tailrec" : "3.3.0"
+    "purescript-tailrec" : "3.3.0",
+    "purescript-strings" : "3.3.0"
     },
   "devDependencies": {
     "purescript-psci-support": "^3.0.0"
