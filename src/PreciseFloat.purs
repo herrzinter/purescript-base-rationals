@@ -3,7 +3,7 @@ module PreciseFloat
   , fromRatio
   , toRatio
   , scale
-  , toDigitsBI
+  , isZero
   , toMixedRatio
   , appendNZerosOnTheRight
   , stripNDigitsOnTheRight
@@ -88,20 +88,22 @@ toRatio pf@(PreciseFloat pfr)
     | not $ isRecurring pf = Ratio pfr.finit (ten `pow` pfr.shift)
     | otherwise            = Ratio num den
       where
-        num = toDigitsBI pf - pfr.finit
+        num = pfr.finit `appendNZerosOnTheRight` pfr.infinitLength
+            + pfr.infinit
+            - pfr.finit
+
         den = ten `pow` pfr.shift - ten `pow` (pfr.shift - pfr.infinitLength)
 
 isRecurring :: PreciseFloat -> Boolean
 isRecurring (PreciseFloat pfr) = pfr.infinit /= zero
 
+isZero :: PreciseFloat -> Boolean
+isZero (PreciseFloat pfr) = pfr.finit == zero && pfr.infinit == zero
+
 scale :: PreciseFloat -> BigInt -> PreciseFloat
 scale pf factor = fromRatio $ Ratio (num * factor) den
   where
     (Ratio num den) = toRatio pf
-
-toDigitsBI :: PreciseFloat -> BigInt
-toDigitsBI (PreciseFloat pfr) =
-    pfr.finit `appendNZerosOnTheRight` pfr.infinitLength + pfr.infinit
 
 
 -- Helpers
