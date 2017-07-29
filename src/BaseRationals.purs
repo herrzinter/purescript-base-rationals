@@ -24,7 +24,7 @@ import Control.Monad.Rec.Class (Step(..), tailRecM3)
 
 
 type BasisFunctions =
-    {   isFinit     :: Int -> Ratio BigInt -> Maybe Boolean
+    {   isFinit     :: Int -> Ratio BigInt -> Either String Boolean
     ,   fromString  :: Int -> String       -> Either String (Ratio BigInt)
     ,   toString    :: Int -> Ratio BigInt -> Either String String
     }
@@ -41,6 +41,8 @@ functionsFromDigitArray digitsArray
     digits = List.fromFoldable digitsArray
     maximalBasis = length digits
 
+    -- Unless guard, checking if the current basis is in the range of valid
+    -- basis, ie. if `2 <= basis <= maximalBasis`
     errorUnlessValidBasis basis = do
         unless
             (basis >= 2)
@@ -50,34 +52,40 @@ functionsFromDigitArray digitsArray
             (Left $ "Basis " <> show basis <> " bigger then maximal basis "
                              <> show maximalBasis)
 
-    -- The prime factorizations of all possible basis of a list of digits
-    -- is used for several calculations eg. checking, if a fraction has a
-    -- finit representation in a certain basis. As it is expensive to
-    -- calculate primes and prime factorizations their are calculated for
-    -- one module
-
-    primeFactorsList :: List (List BigInt)
-    primeFactorsList = do
+    -- The prime factors of all basis are needed to compute if a fraction
+    -- has a finit non-fractional representation. As computation of primes
+    -- and factorizations is expensive, it is done once for all possible basis
+    listOfPrimeFactorLists :: List (List BigInt)
+    listOfPrimeFactorLists = do
         basis <- 2 .. maximalBasis
-        let factorization = factorize primes basis
-        pure $ map BI.fromInt factorization.factors
+        let {factors} = factorize primes basis
+        pure $ map BI.fromInt factors
       where
         primes = calculatePrimes maximalBasis
 
-    getPrimeFactors basis = primeFactorsList `index` (basis - 2)
+    getPrimeFactorsOfBasis basis = do
+        errorUnlessValidBasis basis
+        -- The first valid basis is 2 and thus, has index zero. Therefore, the
+        -- basis is shifted by two to get the corresponding index
+        let basisIndex = basis - 2
+        primeFactors <- note
+            ("Could not get prime factors for basis " <> show basis)
+            (listOfPrimeFactorLists `index` basisIndex)
+        pure $ primeFactors
 
-    isFinit basis (Ratio _ denominator)
-        | basis > maximalBasis = Nothing
-        -- If the denominator can be complete factorized by the primefactors
-        -- of the current basis, the non-fractional rendering of the
-        -- rational is finit
-        | otherwise = Just (foldl factorizeMany denominator primeFactors == one)
-          where
-            primeFactors = fromMaybe Nil (getPrimeFactors basis)
-
-            factorizeMany number factor
-                | number `mod` factor == zero = factorizeMany (number / factor) factor
-                | otherwise                   = number
+    -- | Is the non-fractional representation of `Ratio` finit in `basis`?
+    isFinit :: Int -> Ratio BigInt -> Either String Boolean
+    isFinit basis (Ratio _ den) = do
+        errorUnlessValidBasis basis
+        primeFactors <- getPrimeFactorsOfBasis basis
+        -- If the `den` can be completely factorized by the `primeFactors` of
+        -- `basis`, the fold results in one. In this case, the non-fractional
+        -- representation of `Ratio` is finit in `basis`
+        pure (foldl factorizeMany den primeFactors == one)
+      where
+        factorizeMany num factor
+            | num `mod` factor == zero = factorizeMany (num / factor) factor
+            | otherwise                = num
 
     fromString :: Int -> String -> Either String (Ratio BigInt)
     fromString basis string = do
