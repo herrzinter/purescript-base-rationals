@@ -187,7 +187,7 @@ postFromPropper digits basis pf0 = tailRecM3 loop Nil Nil (pf0 `scale` basis)
         -> PreciseFloat       -- Intermediate value
         -> Either String _
     loop pfs cs pf@(PreciseFloat pfr)
-        | isZero pf = case pf `elemIndex` pfs  of
+        | not $ isZero pf = case pf `elemIndex` pfs  of
             Nothing -> do
                 -- Calculate index *i* and lookup corresponding char *c*
                 let n = pfr.shift - pfr.infinitLength
