@@ -6,7 +6,7 @@ module Basis
   ) where
 
 
-
+import PreciseRational
 import PreciseFloat
 import Prelude
 
@@ -36,7 +36,7 @@ isValidDigitArray digits =
 
 createIsFinitFunction
     :: Array Char
-    -> Maybe (Int -> Ratio BigInt -> Either String Boolean)
+    -> Maybe (Int -> PreciseRational -> Either String Boolean)
 createIsFinitFunction digitArray = do
     guardValidDigitArray digitArray
     pure isFinit
@@ -67,7 +67,7 @@ createIsFinitFunction digitArray = do
         pure $ primeFactors
 
     -- | Is the non-fractional representation of `Ratio` finit in `basis`?
-    isFinit :: Int -> Ratio BigInt -> Either String Boolean
+    isFinit :: Int -> PreciseRational -> Either String Boolean
     isFinit basis (Ratio _ den) = do
         errorUnlessValidBasis basis maximalBasis
         primeFactors <- getPrimeFactorsOfBasis basis
@@ -83,8 +83,8 @@ createIsFinitFunction digitArray = do
 createConversionFunctions
     :: Array Char
     -> Maybe
-          { fromString  :: Int -> String -> Either String (Ratio BigInt)
-          , toString    :: Int -> Ratio BigInt -> Either String String
+          { fromString  :: Int -> String -> Either String (PreciseRational)
+          , toString    :: Int -> PreciseRational -> Either String String
           }
 createConversionFunctions digitArray = do
     guardValidDigitArray digitArray
@@ -93,7 +93,7 @@ createConversionFunctions digitArray = do
     digits = List.fromFoldable digitArray
     maximalBasis = Array.length digitArray
 
-    fromString :: Int -> String -> Either String (Ratio BigInt)
+    fromString :: Int -> String -> Either String (PreciseRational)
     fromString basis string = do
         errorUnlessValidBasis basis maximalBasis
 
@@ -106,7 +106,7 @@ createConversionFunctions digitArray = do
         numerator <- biFromCharList digits basisBI cs2
         pure $ Ratio (sign * numerator) (basisBI `pow` shift)
 
-    toString :: Int -> Ratio BigInt -> Either String String
+    toString :: Int -> PreciseRational -> Either String String
     toString basis ratio = do
         errorUnlessValidBasis basis maximalBasis
 

@@ -13,12 +13,13 @@ module PreciseFloat
 
 
 import Prelude
+import PreciseRational
 
 import Data.String as String
 import Data.BigInt as BI
 
 import Data.BigInt (BigInt(..), pow)
-import Data.Ratio (Ratio(..))
+import Data.Ratio (Ratio(..), (%))
 import Data.List (List(..), elemIndex, (:))
 import Data.Maybe (Maybe(..))
 
@@ -40,7 +41,7 @@ instance showPreciseFloat :: Show PreciseFloat where
 derive instance eqPreciseFloat :: Eq PreciseFloat
 
 
-fromRatio :: Ratio BigInt -> PreciseFloat
+fromRatio :: PreciseRational -> PreciseFloat
 fromRatio ratio = loop zero (num0 `appendNZerosOnTheRight` one) Nil zero
   where
     -- Seperate whole/propper part from remainder as algorithm fails to work
@@ -85,10 +86,10 @@ fromRatio ratio = loop zero (num0 `appendNZerosOnTheRight` one) Nil zero
           , infinitLength: zero
           }
 
-toRatio :: PreciseFloat -> Ratio BigInt
+toRatio :: PreciseFloat -> PreciseRational
 toRatio pf@(PreciseFloat pfr)
-    | not $ isRecurring pf = Ratio pfr.finit (ten `pow` pfr.shift)
-    | otherwise            = Ratio num den
+    | not $ isRecurring pf = pfr.finit % (ten `pow` pfr.shift)
+    | otherwise            = num % den
       where
         num = pfr.finit `appendNZerosOnTheRight` pfr.infinitLength
             + pfr.infinit
@@ -103,7 +104,7 @@ isZero :: PreciseFloat -> Boolean
 isZero (PreciseFloat pfr) = pfr.finit == zero && pfr.infinit == zero
 
 scale :: PreciseFloat -> BigInt -> PreciseFloat
-scale pf factor = fromRatio $ Ratio (num * factor) den
+scale pf factor = fromRatio ((num * factor) % den)
   where
     (Ratio num den) = toRatio pf
 
@@ -118,10 +119,10 @@ appendNZerosOnTheRight value shift  = value * (ten `pow` shift)
 stripNDigitsOnTheRight :: BigInt -> BigInt -> BigInt
 stripNDigitsOnTheRight value shift = value / (ten `pow` shift)
 
-toMixedRatio :: Ratio BigInt -> {whole :: BigInt, propper :: Ratio BigInt}
+toMixedRatio :: PreciseRational -> {whole :: BigInt, propper :: PreciseRational}
 toMixedRatio impropper@(Ratio num den) = {whole, propper}
   where
     -- Calculate whole part of the impropper ratio and substract it to get
     -- propper ratio
     whole   = num / den
-    propper = Ratio (num - whole * den) den
+    propper = (num - whole * den) % den
