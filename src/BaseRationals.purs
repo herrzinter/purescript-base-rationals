@@ -1,6 +1,10 @@
-
 module BaseRationals
-  ( isValidDigitArray
+
+  ( Digits
+  , digitsFromArray
+  , arrayFromDigits
+  , maximalBasisOfDigits
+
   , isFinitFunctionFromDigits
   , fromString
   , toString
@@ -31,12 +35,37 @@ import Control.MonadPlus (guard)
 import Control.MonadZero (class MonadZero)
 
 
--- | Is `array` a valid array of digits? It needs to:
--- | * contain more than two elements, as two is the smallest possible basis
--- | * contain no duplicate digits
-isValidDigitArray :: Array Char -> Boolean
-isValidDigitArray array =
-    Array.length array >= 2 && hasNoRepeatingElem (List.fromFoldable array)
+-- | Container type for an `Array` of `Chars` representing digits. The
+-- | constructor is hidden, as digits are more constrained than an `Array` of
+-- | `Char`s, use `digitsFromArray` instead.
+data Digits = Digits (Array Char)
+
+instance showDigits :: Show Digits where
+    show (Digits array) = show array
+
+-- | Wrap `Array` of `Char`s in digit container, if array
+-- | * contains at least two digits, as the minimum basis is two
+-- | * all contained digits need to be unique
+digitsFromArray :: Array Char -> Either String Digits
+digitsFromArray array = do
+    unless
+        (Array.length array >= 2)
+        (Left $ "Could not create digits " <> show array
+            <> " has less than two digits")
+    unless
+        (hasNoRepeatingElem $ List.fromFoldable array)
+        (Left $ "Array " <> show array <> " has repeating digits")
+    pure $ Digits array
+
+-- | Unwrap `Array` of `Char`s from `Digits` container
+arrayFromDigits :: Digits -> Array Char
+arrayFromDigits (Digits array) = array
+
+-- | Get the maximal possible basis for `Digits`. It equals the length of the
+-- | wrapped `Array` of `Char`s
+maximalBasisOfDigits :: Digits -> Int
+maximalBasisOfDigits (Digits array) = Array.length array
+
 
 -- | Create `isFinit` function based on an array of digits.
 -- | `isFinit` checks if the non-fractional representation of a fraction is
@@ -44,13 +73,11 @@ isValidDigitArray array =
 -- | computing it requires prime factorization of all possible basis, which
 -- | is computational expensive, so it should only be done once.
 isFinitFunctionFromDigits
-    :: Array Char
+    :: Digits
     -> Maybe (Int -> PreciseRational -> Either String Boolean)
-isFinitFunctionFromDigits digits = do
-    guard $ isValidDigitArray digits
-    pure isFinit
+isFinitFunctionFromDigits digits = pure isFinit
   where
-    maximalBasis = Array.length digits
+    maximalBasis = maximalBasisOfDigits digits
 
     -- The prime factors of all basis are needed to compute if a fraction
     -- has a finit non-fractional representation. As computation of primes
@@ -88,7 +115,7 @@ isFinitFunctionFromDigits digits = do
             | otherwise                = num
 
 -- | Parse a `PreciseRational` from a `string` in a certain `basis`
-fromString :: Array Char -> Int -> String -> Either String PreciseRational
+fromString :: Digits -> Int -> String -> Either String PreciseRational
 fromString digits basis string = do
     errorUnlessValidBasis basis digits
 
@@ -102,7 +129,7 @@ fromString digits basis string = do
     pure $ Ratio (sign * numerator) (basisBI `pow` shift)
 
 -- | Render a non-fractional `String`-representation of `ratio` in `basis`
-toString :: Array Char -> Int -> PreciseRational -> Either String String
+toString :: Digits -> Int -> PreciseRational -> Either String String
 toString digits basis ratio = do
     errorUnlessValidBasis basis digits
 
@@ -125,16 +152,18 @@ toString digits basis ratio = do
 
 -- Parse a `BigInt` from a list of chars
 biFromCharList
-    :: Array Char            -- Digits
+    :: Digits            -- Digits
     -> BigInt               -- Basis
     -> List Char            -- Input characters
     -> Either String BigInt -- Error or parsed number
 biFromCharList digits basis cs0 = loop (reverse cs0) zero zero
   where
+    digitArray = arrayFromDigits digits
+
     loop (c : cs) accumulator position  = do
         digitValue <- note
             ("Failed to lookup " <> show c <> " in digits " <> show digits)
-            (c `Array.elemIndex` digits)
+            (c `Array.elemIndex` digitArray)
 
         let positionValue = basis `pow` position
         let delta         = (BI.fromInt digitValue) * positionValue
@@ -144,7 +173,7 @@ biFromCharList digits basis cs0 = loop (reverse cs0) zero zero
 
 -- Render a whole number in a certain basis
 preFromWhole
-    :: Array Char                  -- Digits
+    :: Digits                  -- Digits
     -> BigInt                     -- Basis
     -> BigInt                     -- Whole number
     -> Either String (List Char)  -- Error or pre radix characters
@@ -157,7 +186,7 @@ preFromWhole digits basis whole = loop Nil whole
           let remainder = dividend `mod` basis
           let quotient = (dividend - remainder) / basis
           -- Get Corresponding digit character
-          c <- digits `biIndex` remainder
+          c <- digits `digitIndex` remainder
 
           loop (c : cs) quotient
       | otherwise = Right cs
@@ -165,7 +194,7 @@ preFromWhole digits basis whole = loop Nil whole
 -- Render a propper fraction in a non-fractional representation in a certain
 -- basis
 postFromPropper
-    :: Array Char                  -- Digits
+    :: Digits                  -- Digits
     -> BigInt                     -- Base
     -> PreciseFloat               -- Remainder
     -> Either String (List Char)  -- Error or post radix characters
@@ -182,7 +211,7 @@ postFromPropper digits basis pf0 = tailRecM3 loop Nil Nil (pf0 `scale` basis)
                 -- Calculate index *i* and lookup corresponding char *c*
                 let n = pfr.shift - pfr.infinitLength
                 let iBI = pfr.finit `stripNDigitsOnTheRight` n
-                c <- digits `biIndex` iBI
+                c <- digits `digitIndex` iBI
                 let finit' = pfr.finit - iBI `appendNZerosOnTheRight` n
 
                 pure $ Loop
@@ -293,8 +322,9 @@ hasNoRepeatingElem list = loop list Nil
 
 -- Unless guard, checking if the current basis is in the range of valid
 -- basis, ie. if `2 <= basis <= maximalBasis`
-errorUnlessValidBasis :: Int -> Array Char -> Either String Unit
+errorUnlessValidBasis :: Int -> Digits -> Either String Unit
 errorUnlessValidBasis basis digits = do
+    let maximalBasis = maximalBasisOfDigits digits
     unless
         (basis >= 2)
         (Left $ "Basis " <> show basis <> " smaller than '2'")
@@ -302,16 +332,15 @@ errorUnlessValidBasis basis digits = do
         (basis <= maximalBasis)
         (Left $ "Basis " <> show basis <> " bigger then maximal basis "
                          <> show maximalBasis)
-  where
-    maximalBasis = Array.length digits
 
 -- | Lookup a character in a list of characters identified by an BigInt index
-biIndex :: Array Char -> BigInt -> Either String Char
-biIndex digits iBI = do
+digitIndex :: Digits -> BigInt -> Either String Char
+digitIndex digits iBI = do
+    let digitArray = arrayFromDigits digits
     i <- note
         ("Failed to convert BigInt index " <> BI.toString iBI <> " to Int")
         (Int.fromNumber $ toNumber iBI)
     c <- note
         ("Failed to lookup index " <> show i <> " in " <> show digits)
-        (digits `Array.index` i)
+        (digitArray `Array.index` i)
     pure c

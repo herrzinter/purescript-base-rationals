@@ -3,11 +3,13 @@ module Test.Main where
 import Prelude
 import BaseRationals
 
+import Data.BigInt as BI
+
 import Data.Ratio (Ratio(..))
 import Data.List (fromFoldable)
 import Data.Array (foldl)
 import PreciseFloat (PreciseFloat (..), scale, fromRatio)
-import Data.BigInt (BigInt(..), fromInt, fromString, toString)
+import Data.BigInt (BigInt(..))
 import Data.Either (Either(..))
 import Data.Maybe (Maybe (..))
 import Control.Error.Util (note)
@@ -35,25 +37,25 @@ data PreciseFloatTest
 
 
 readPFFromRatioTest (PFFromRatioTestString ns ds fs is ils s) = do
-    n <- fromString ns
-    d <- fromString ds
-    finit <- fromString fs
-    infinit <- fromString is
-    let infinitLength = fromInt ils
-    let shift = fromInt s
+    n <- BI.fromString ns
+    d <- BI.fromString ds
+    finit <- BI.fromString fs
+    infinit <- BI.fromString is
+    let infinitLength = BI.fromInt ils
+    let shift = BI.fromInt s
 
     let pf' = PreciseFloat {finit, infinit, infinitLength, shift}
     let r   = Ratio n d
 
     pure {r, pf'}
 readPFFromRatioTest (PFFromRatioTestInt n d f i ils s) = do
-    let finit   = fromInt f
-    let infinit = fromInt i
-    let shift = fromInt s
-    let infinitLength = fromInt ils
+    let finit   = BI.fromInt f
+    let infinit = BI.fromInt i
+    let shift = BI.fromInt s
+    let infinitLength = BI.fromInt ils
 
     let pf' = PreciseFloat {finit, infinit, infinitLength, shift}
-    let r   = Ratio (fromInt n) (fromInt d)
+    let r   = Ratio (BI.fromInt n) (BI.fromInt d)
 
     pure {r, pf'}
 
@@ -89,20 +91,20 @@ data PfScalingTest
 readPfScalingTest (PfScalingTestInt f1 i1 il1 s1   f2 i2 il2 s2 factor) =
   let
     pf1 = PreciseFloat
-        {   finit         : fromInt f1
-        ,   infinit       : fromInt i1
-        ,   infinitLength : fromInt il1
-        ,   shift         : fromInt s1
+        {   finit         : BI.fromInt f1
+        ,   infinit       : BI.fromInt i1
+        ,   infinitLength : BI.fromInt il1
+        ,   shift         : BI.fromInt s1
         }
     pf2 = PreciseFloat
-        {   finit         : fromInt f2
-        ,   infinit       : fromInt i2
-        ,   infinitLength : fromInt il2
-        ,   shift         : fromInt s2
+        {   finit         : BI.fromInt f2
+        ,   infinit       : BI.fromInt i2
+        ,   infinitLength : BI.fromInt il2
+        ,   shift         : BI.fromInt s2
         }
 
     in
-      {pf1, pf2, factor : fromInt factor}
+      {pf1, pf2, factor : BI.fromInt factor}
 
 
 testPfScaling = do
@@ -118,8 +120,8 @@ testPfScaling = do
         <> show pf1' <> " should be " <> show pf2
 
 
-digits :: Array Char
-digits = ['0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F']
+digitArray :: Array Char
+digitArray = ['0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F']
 
 data TestToFromString = TestToFromStringString Int String String String
                       | TestToFromStringInt    Int String Int    Int
@@ -163,12 +165,12 @@ toFromStringTestArray' =
     ]
 
 readToFromTest (TestToFromStringInt b s ni di) = do
-    let r = Ratio (fromInt ni) (fromInt di)
+    let r = Ratio (BI.fromInt ni) (BI.fromInt di)
 
     pure {b, s, r}
 readToFromTest (TestToFromStringString b s ns ds) = do
-    nbi <- note "Conversion failed" (fromString ns)
-    dbi <- note "Conversion failed" (fromString ds)
+    nbi <- note "Conversion failed" (BI.fromString ns)
+    dbi <- note "Conversion failed" (BI.fromString ds)
 
     let r = Ratio nbi dbi
 
@@ -215,8 +217,11 @@ testFromString fromString' = do
 
 main :: forall e. Eff (console :: CONSOLE | e) Unit
 main = do
-    let tests =  testPfFromRatio
-              <> testPfScaling
-              <> testToString (toString digits)
-              <> testFromString (fromString digits)
-    log $ foldl (\a s -> a <> "\n" <> s) "" tests
+    case digitsFromArray digitArray of
+        Right digits -> do
+            let tests =  testPfFromRatio
+                      <> testPfScaling
+                      <> testToString (toString digits)
+                      <> testFromString (fromString digits)
+            log $ foldl (\a s -> a <> "\n" <> s) "" tests
+        Left error -> log error
