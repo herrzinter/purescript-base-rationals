@@ -67,14 +67,15 @@ maximalBasisOfDigits :: Digits -> Int
 maximalBasisOfDigits (Digits array) = Array.length array
 
 
--- | Create `isFinit` function based on an array of digits.
 -- | `isFinit` checks if the non-fractional representation of a fraction is
--- | finit in a certain basis. The function is not exported directly, as
+-- | finit in a certain basis.
+type IsFinitFunction = Int -> PreciseRational -> Either String Boolean
+
+-- | Create `isFinit` function based on an array of digits.
+-- | The function is not exported directly, as
 -- | computing it requires prime factorization of all possible basis, which
--- | is computational expensive, so it should only be done once.
-isFinitFunctionFromDigits
-    :: Digits
-    -> Maybe (Int -> PreciseRational -> Either String Boolean)
+-- | is computational expensive, so it should only be done once for `Digits`.
+isFinitFunctionFromDigits :: Digits -> Maybe IsFinitFunction
 isFinitFunctionFromDigits digits = pure isFinit
   where
     maximalBasis = maximalBasisOfDigits digits
@@ -114,7 +115,8 @@ isFinitFunctionFromDigits digits = pure isFinit
             | num `mod` factor == zero = factorizeMany (num / factor) factor
             | otherwise                = num
 
--- | Parse a `PreciseRational` from a `string` in a certain `basis`
+-- | Parse a `PreciseRational` from a `String` in basis `Int` given
+-- | `Digits`.
 fromString :: Digits -> Int -> String -> Either String PreciseRational
 fromString digits basis string = do
     errorUnlessValidBasis basis digits
@@ -128,7 +130,8 @@ fromString digits basis string = do
     numerator <- biFromCharList digits basisBI cs2
     pure $ Ratio (sign * numerator) (basisBI `pow` shift)
 
--- | Render a non-fractional `String`-representation of `ratio` in `basis`
+-- | Render a non-fractional `String`-representation of a `PreciseRational`
+-- | in basis `Int` given `Digits`.
 toString :: Digits -> Int -> PreciseRational -> Either String String
 toString digits basis ratio = do
     errorUnlessValidBasis basis digits
@@ -147,12 +150,12 @@ toString digits basis ratio = do
 
 
 --
---  Conversion helpers: create `BigInt`s from `List Char` and vice versa
+--  Conversion helpers
 --
 
--- Parse a `BigInt` from a list of chars
+-- Parse a `BigInt` from characters given *digits* and *basis*
 biFromCharList
-    :: Digits            -- Digits
+    :: Digits               -- Digits
     -> BigInt               -- Basis
     -> List Char            -- Input characters
     -> Either String BigInt -- Error or parsed number
@@ -171,9 +174,9 @@ biFromCharList digits basis cs0 = loop (reverse cs0) zero zero
         loop cs (accumulator + delta) (position + one)
     loop  _       accumulator _         = pure accumulator
 
--- Render a whole number in a certain basis
+-- Render character representatoin of a whole number given *digits* and *basis*
 preFromWhole
-    :: Digits                  -- Digits
+    :: Digits                     -- Digits
     -> BigInt                     -- Basis
     -> BigInt                     -- Whole number
     -> Either String (List Char)  -- Error or pre radix characters
@@ -191,10 +194,10 @@ preFromWhole digits basis whole = loop Nil whole
           loop (c : cs) quotient
       | otherwise = Right cs
 
--- Render a propper fraction in a non-fractional representation in a certain
--- basis
+-- Render character representation of a propper fraction in a non-fractional
+-- representation given *digits* and *basis*
 postFromPropper
-    :: Digits                  -- Digits
+    :: Digits                     -- Digits
     -> BigInt                     -- Base
     -> PreciseFloat               -- Remainder
     -> Either String (List Char)  -- Error or post radix characters

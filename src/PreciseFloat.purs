@@ -27,18 +27,19 @@ import Data.Maybe (Maybe(..))
 -- | The `PreciseFloat` data type is a non-fractional representation of
 -- | rational numbers, ie. it is an infinit precision floating point number.
 -- | Rational numbers can have recurring, and thus, infinit, non-fractional
--- | represenations. Thus, the `finit`, ie. not recurring, and `infinit` , ie.
--- | recurring, part a seperated.
--- | InfinitLength specifies the length of the infinit part. This is necessarry
+-- | represenations. The `finit`, ie. not recurring, and `infinit` , ie.
+-- | recurring, part are seperated.
+-- | `infinitLength` specifies the length of the infinit part. This is necessarry
 -- | to encode the difference between infinit parts which are lead by zeros and
 -- | infinit parts which are not, eg.
 -- | "0.[1]" and "0.[001]" have both infinit = 1, but different
 -- | `infinitLength`s.
--- | Shift specifies the position of the radix point, as in every floating point
--- | number. In contrast to traditional floating points, shift is only positive,
--- | and only interpreted as negative exponent, eg.
--- | "1000" is coded as {f: 1000, i: 0, il: 0, s: 0}, but
--- | "0.001" as {f: 1, i: 0, il: 0, s: 3}
+-- | `shift` specifies by how many digits the radix points has to be shifted to
+-- | the left, so that, `finit` and `infinit` become whole numbers. Thus,
+-- | in contrast to traditional floating point types, shift is only positive,
+-- | and always interpreted as negative exponent, eg.
+-- | "1000" is coded as {f: 1000, i: 0, il: 0, s: 0},
+-- | but "0.001" as {f: 1, i: 0, il: 0, s: 3}
 data PreciseFloat = PreciseFloat
   { finit         :: BigInt
   , infinit       :: BigInt
@@ -142,7 +143,8 @@ appendNZerosOnTheRight value shift  = value * (ten `pow` shift)
 stripNDigitsOnTheRight :: BigInt -> BigInt -> BigInt
 stripNDigitsOnTheRight value shift = value / (ten `pow` shift)
 
--- | Seperate the `whole` from the `propper` part of an improper fraction
+-- | Seperate the `whole` from the `propper` part of an (possibly) impropper
+-- | fraction
 toMixedRatio :: PreciseRational -> {whole :: BigInt, propper :: PreciseRational}
 toMixedRatio impropper@(Ratio num den) = {whole, propper}
   where
