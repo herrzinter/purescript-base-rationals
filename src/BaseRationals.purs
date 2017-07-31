@@ -1,9 +1,7 @@
 
 module BaseRationals
   ( isValidDigitArray
-  , createIsFinitFunction
-  , createFromToStringFunctions
-  -- Funtions without safe digit context
+  , isFinitFunctionFromDigits
   , fromString
   , toString
   ) where
@@ -42,15 +40,17 @@ isValidDigitArray array =
 
 -- | Create `isFinit` function based on an array of digits.
 -- | `isFinit` checks if the non-fractional representation of a fraction is
--- |    finit in a certain basis
-createIsFinitFunction
+-- |    finit in a certain basis. The function is not exported directly, as
+-- |    computing it requires prime factorization of all possible basis, which
+-- |    is computational expensive, so it should only be done once.
+isFinitFunctionFromDigits
     :: Array Char
     -> Maybe (Int -> PreciseRational -> Either String Boolean)
-createIsFinitFunction digitArray = do
-    guard $ isValidDigitArray digitArray
+isFinitFunctionFromDigits digits = do
+    guard $ isValidDigitArray digits
     pure isFinit
   where
-    maximalBasis = Array.length digitArray
+    maximalBasis = Array.length digits
 
     -- The prime factors of all basis are needed to compute if a fraction
     -- has a finit non-fractional representation. As computation of primes
@@ -65,7 +65,7 @@ createIsFinitFunction digitArray = do
 
     getPrimeFactorsOfBasis :: Int -> Either String (List BigInt)
     getPrimeFactorsOfBasis basis = do
-        errorUnlessValidBasis basis maximalBasis
+        errorUnlessValidBasis basis digits
         -- The first valid basis is 2 and thus, has index zero. Therefore, the
         -- basis is shifted by two to get the corresponding index
         let basisIndex = basis - 2
@@ -76,7 +76,7 @@ createIsFinitFunction digitArray = do
 
     isFinit :: Int -> PreciseRational -> Either String Boolean
     isFinit basis (Ratio _ den) = do
-        errorUnlessValidBasis basis maximalBasis
+        errorUnlessValidBasis basis digits
         primeFactors <- getPrimeFactorsOfBasis basis
         -- If the `den` can be completely factorized by the `primeFactors` of
         -- `basis`, the fold results in one. In this case, the non-fractional
@@ -87,40 +87,17 @@ createIsFinitFunction digitArray = do
             | num `mod` factor == zero = factorizeMany (num / factor) factor
             | otherwise                = num
 
--- | Create `toString` and `fromString` functions given a digit context. Checks
--- | if the digit Context is valid, and adds checks to the functions, which
--- | throw an error if `basis` is not valid in digit context
-createFromToStringFunctions
-    :: Array Char -- Digits
-    -> Maybe
-        { fromString  :: Int -> String -> Either String PreciseRational
-        , toString    :: Int -> PreciseRational -> Either String String
-        }
-createFromToStringFunctions digitArray = do
-    guard $ isValidDigitArray digitArray
-    pure {fromString: fromString', toString: toString'}
-  where
-    maximalBasis = Array.length digitArray
-
-    -- Add check for valid basis to `fromString` and `toString`
-
-    fromString' :: Int -> String -> Either String PreciseRational
-    fromString' basis string = do
-        errorUnlessValidBasis basis maximalBasis
-        fromString digitArray basis string
-
-    toString' :: Int -> PreciseRational -> Either String String
-    toString' basis ratio = do
-        errorUnlessValidBasis basis maximalBasis
-        toString digitArray basis ratio
-
+-- | Create `toString` and `fromString` functions given a digit array
+createFromToStringFunctions :: Array Char -> Maybe _
+createFromToStringFunctions digits = do
+    guard $ isValidDigitArray digits
+    pure {fromString: fromString digits, toString: toString digits}
 
 -- | Parse a `PreciseRational` from a `string` in a certain `basis`
--- | NOTE: Does not check if the digit context and basis fit together, you
--- |    probably want to use `createFromToStringFunctions` which checks for
--- |    valid basis digits combinations
 fromString :: Array Char -> Int -> String -> Either String PreciseRational
 fromString digits basis string = do
+    errorUnlessValidBasis basis digits
+
     let cs0 = List.fromFoldable $ String.toCharArray $ string
 
     let {sign, cs: cs1} = splitSign cs0
@@ -131,11 +108,10 @@ fromString digits basis string = do
     pure $ Ratio (sign * numerator) (basisBI `pow` shift)
 
 -- | Render a non-fractional `String`-representation of `ratio` in `basis`
--- | NOTE: Does not check if the digit context and basis fit together, you
--- |    probably want to use `createFromToStringFunctions` which checks for
--- |    valid digits basis combinations
 toString :: Array Char -> Int -> PreciseRational -> Either String String
 toString digits basis ratio = do
+    errorUnlessValidBasis basis digits
+
     let basisBI = BI.fromInt basis
     -- Seperate the *whole* part of the fraction and the *propper*
     let {whole, propper} = toMixedRatio ratio
@@ -323,8 +299,8 @@ hasNoRepeatingElem list = loop list Nil
 
 -- Unless guard, checking if the current basis is in the range of valid
 -- basis, ie. if `2 <= basis <= maximalBasis`
-errorUnlessValidBasis :: Int -> Int -> Either String Unit
-errorUnlessValidBasis basis maximalBasis = do
+errorUnlessValidBasis :: Int -> Array Char -> Either String Unit
+errorUnlessValidBasis basis digits = do
     unless
         (basis >= 2)
         (Left $ "Basis " <> show basis <> " smaller than '2'")
@@ -332,6 +308,8 @@ errorUnlessValidBasis basis maximalBasis = do
         (basis <= maximalBasis)
         (Left $ "Basis " <> show basis <> " bigger then maximal basis "
                          <> show maximalBasis)
+  where
+    maximalBasis = Array.length digits
 
 -- | Lookup a character in a list of characters identified by an BigInt index
 biIndex :: Array Char -> BigInt -> Either String Char

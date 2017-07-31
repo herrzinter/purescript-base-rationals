@@ -215,11 +215,8 @@ testFromString fromString' = do
 
 main :: forall e. Eff (console :: CONSOLE | e) Unit
 main = do
-  case createFromToStringFunctions digits of
-      Just {fromString, toString} -> do
-          let tests =  testPfFromRatio
-                    <> testPfScaling
-                    <> testToString toString
-                    <> testFromString fromString
-          log $ foldl (\a s -> a <> "\n" <> s) "" tests
-      Nothing -> log "Could not create basis functions"
+    let tests =  testPfFromRatio
+              <> testPfScaling
+              <> testToString (toString digits)
+              <> testFromString (fromString digits)
+    log $ foldl (\a s -> a <> "\n" <> s) "" tests
