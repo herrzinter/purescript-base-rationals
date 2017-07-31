@@ -1,7 +1,8 @@
 
 module Basis
   ( isValidDigitArray
-  , functionsFromDigitArray
+  , createIsFinitFunction
+  , createConversionFunctions
   ) where
 
 
@@ -25,7 +26,7 @@ import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Either (Either(..))
 import Control.Error.Util (note)
 import Control.Monad.Rec.Class (Step(..), tailRecM3)
-
+import Control.MonadPlus (guard)
 
 -- | Is `digitArray` a valid array of digits? It is, if it contains at least
 -- | two digits, as the minimal valid basis is two, and all digits are distinct
@@ -33,30 +34,15 @@ isValidDigitArray :: Array Char -> Boolean
 isValidDigitArray digits =
     Array.length digits >= 2 && hasNoRepeatingElem (List.fromFoldable digits)
 
-type BasisFunctions =
-    {   isFinit     :: Int -> Ratio BigInt -> Either String Boolean
-    ,   fromString  :: Int -> String       -> Either String (Ratio BigInt)
-    ,   toString    :: Int -> Ratio BigInt -> Either String String
-    }
-
-functionsFromDigitArray :: Array Char -> Maybe BasisFunctions
-functionsFromDigitArray digitsArray
-    | not $ isValidDigitArray digitsArray = Nothing
-    | otherwise                           = Just {isFinit, fromString, toString}
+createIsFinitFunction
+    :: Array Char
+    -> Maybe (Int -> Ratio BigInt -> Either String Boolean)
+createIsFinitFunction digitArray = do
+    guardValidDigitArray digitArray
+    pure isFinit
   where
-    digits = List.fromFoldable digitsArray
-    maximalBasis = length digits
-
-    -- Unless guard, checking if the current basis is in the range of valid
-    -- basis, ie. if `2 <= basis <= maximalBasis`
-    errorUnlessValidBasis basis = do
-        unless
-            (basis >= 2)
-            (Left $ "Basis " <> show basis <> " smaller than '2'")
-        unless
-            (basis <= maximalBasis)
-            (Left $ "Basis " <> show basis <> " bigger then maximal basis "
-                             <> show maximalBasis)
+    digits = List.fromFoldable digitArray
+    maximalBasis = Array.length digitArray
 
     -- The prime factors of all basis are needed to compute if a fraction
     -- has a finit non-fractional representation. As computation of primes
@@ -69,8 +55,9 @@ functionsFromDigitArray digitsArray
       where
         primes = calculatePrimes maximalBasis
 
+    getPrimeFactorsOfBasis :: Int -> Either String (List BigInt)
     getPrimeFactorsOfBasis basis = do
-        errorUnlessValidBasis basis
+        errorUnlessValidBasis basis maximalBasis
         -- The first valid basis is 2 and thus, has index zero. Therefore, the
         -- basis is shifted by two to get the corresponding index
         let basisIndex = basis - 2
@@ -82,7 +69,7 @@ functionsFromDigitArray digitsArray
     -- | Is the non-fractional representation of `Ratio` finit in `basis`?
     isFinit :: Int -> Ratio BigInt -> Either String Boolean
     isFinit basis (Ratio _ den) = do
-        errorUnlessValidBasis basis
+        errorUnlessValidBasis basis maximalBasis
         primeFactors <- getPrimeFactorsOfBasis basis
         -- If the `den` can be completely factorized by the `primeFactors` of
         -- `basis`, the fold results in one. In this case, the non-fractional
@@ -93,9 +80,22 @@ functionsFromDigitArray digitsArray
             | num `mod` factor == zero = factorizeMany (num / factor) factor
             | otherwise                = num
 
+createConversionFunctions
+    :: Array Char
+    -> Maybe
+          { fromString  :: Int -> String -> Either String (Ratio BigInt)
+          , toString    :: Int -> Ratio BigInt -> Either String String
+          }
+createConversionFunctions digitArray = do
+    guardValidDigitArray digitArray
+    pure $ {fromString, toString}
+  where
+    digits = List.fromFoldable digitArray
+    maximalBasis = Array.length digitArray
+
     fromString :: Int -> String -> Either String (Ratio BigInt)
     fromString basis string = do
-        errorUnlessValidBasis basis
+        errorUnlessValidBasis basis maximalBasis
 
         let cs0 = List.fromFoldable $ String.toCharArray $ string
 
@@ -108,7 +108,7 @@ functionsFromDigitArray digitsArray
 
     toString :: Int -> Ratio BigInt -> Either String String
     toString basis ratio = do
-        errorUnlessValidBasis basis
+        errorUnlessValidBasis basis maximalBasis
 
         let basisBI = BI.fromInt basis
         -- Seperate the *whole* part of the fraction and the *propper*
@@ -280,4 +280,19 @@ hasNoRepeatingElem list = loop list Nil
   where
     loop (e : es) es' | not $ e `elem` es'  = loop es (e : es')
                       | otherwise           = false
-    loop _        _                         = true
+    loop _        _
+           = true
+
+guardValidDigitArray digitArray = do
+    guard $ isValidDigitArray digitArray
+
+-- Unless guard, checking if the current basis is in the range of valid
+-- basis, ie. if `2 <= basis <= maximalBasis`
+errorUnlessValidBasis basis maximalBasis = do
+    unless
+        (basis >= 2)
+        (Left $ "Basis " <> show basis <> " smaller than '2'")
+    unless
+        (basis <= maximalBasis)
+        (Left $ "Basis " <> show basis <> " bigger then maximal basis "
+                         <> show maximalBasis)
