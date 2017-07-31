@@ -87,12 +87,6 @@ isFinitFunctionFromDigits digits = do
             | num `mod` factor == zero = factorizeMany (num / factor) factor
             | otherwise                = num
 
--- | Create `toString` and `fromString` functions given a digit array
-createFromToStringFunctions :: Array Char -> Maybe _
-createFromToStringFunctions digits = do
-    guard $ isValidDigitArray digits
-    pure {fromString: fromString digits, toString: toString digits}
-
 -- | Parse a `PreciseRational` from a `string` in a certain `basis`
 fromString :: Array Char -> Int -> String -> Either String PreciseRational
 fromString digits basis string = do
