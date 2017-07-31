@@ -27,6 +27,7 @@ import Data.Either (Either(..))
 import Control.Error.Util (note)
 import Control.Monad.Rec.Class (Step(..), tailRecM3)
 import Control.MonadPlus (guard)
+import Control.MonadZero (class MonadZero)
 
 -- | Is `digitArray` a valid array of digits? It is, if it contains at least
 -- | two digits, as the minimal valid basis is two, and all digits are distinct
@@ -38,7 +39,7 @@ createIsFinitFunction
     :: Array Char
     -> Maybe (Int -> PreciseRational -> Either String Boolean)
 createIsFinitFunction digitArray = do
-    guardValidDigitArray digitArray
+    guard $ isValidDigitArray digitArray
     pure isFinit
   where
     digits = List.fromFoldable digitArray
@@ -83,17 +84,17 @@ createIsFinitFunction digitArray = do
 createConversionFunctions
     :: Array Char
     -> Maybe
-          { fromString  :: Int -> String -> Either String (PreciseRational)
+          { fromString  :: Int -> String -> Either String PreciseRational
           , toString    :: Int -> PreciseRational -> Either String String
           }
 createConversionFunctions digitArray = do
-    guardValidDigitArray digitArray
+    guard $ isValidDigitArray digitArray
     pure $ {fromString, toString}
   where
     digits = List.fromFoldable digitArray
     maximalBasis = Array.length digitArray
 
-    fromString :: Int -> String -> Either String (PreciseRational)
+    fromString :: Int -> String -> Either String PreciseRational
     fromString basis string = do
         errorUnlessValidBasis basis maximalBasis
 
@@ -282,9 +283,6 @@ hasNoRepeatingElem list = loop list Nil
                       | otherwise           = false
     loop _        _
            = true
-
-guardValidDigitArray digitArray = do
-    guard $ isValidDigitArray digitArray
 
 -- Unless guard, checking if the current basis is in the range of valid
 -- basis, ie. if `2 <= basis <= maximalBasis`
