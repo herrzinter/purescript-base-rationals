@@ -100,7 +100,6 @@ createFromToStringFunctions digitArray = do
     guard $ isValidDigitArray digitArray
     pure {fromString: fromString', toString: toString'}
   where
-    digitList = List.fromFoldable digitArray
     maximalBasis = Array.length digitArray
 
     -- Add check for valid basis to `fromString` and `toString`
@@ -108,19 +107,19 @@ createFromToStringFunctions digitArray = do
     fromString' :: Int -> String -> Either String PreciseRational
     fromString' basis string = do
         errorUnlessValidBasis basis maximalBasis
-        fromString digitList basis string
+        fromString digitArray basis string
 
     toString' :: Int -> PreciseRational -> Either String String
     toString' basis ratio = do
         errorUnlessValidBasis basis maximalBasis
-        toString digitList basis ratio
+        toString digitArray basis ratio
 
 
 -- | Parse a `PreciseRational` from a `string` in a certain `basis`
 -- | NOTE: Does not check if the digit context and basis fit together, you
 -- |    probably want to use `createFromToStringFunctions` which checks for
 -- |    valid basis digits combinations
-fromString :: List Char -> Int -> String -> Either String PreciseRational
+fromString :: Array Char -> Int -> String -> Either String PreciseRational
 fromString digits basis string = do
     let cs0 = List.fromFoldable $ String.toCharArray $ string
 
@@ -135,7 +134,7 @@ fromString digits basis string = do
 -- | NOTE: Does not check if the digit context and basis fit together, you
 -- |    probably want to use `createFromToStringFunctions` which checks for
 -- |    valid digits basis combinations
-toString :: List Char -> Int -> PreciseRational -> Either String String
+toString :: Array Char -> Int -> PreciseRational -> Either String String
 toString digits basis ratio = do
     let basisBI = BI.fromInt basis
     -- Seperate the *whole* part of the fraction and the *propper*
@@ -156,7 +155,7 @@ toString digits basis ratio = do
 
 -- Parse a `BigInt` from a list of chars
 biFromCharList
-    :: List Char            -- Digits
+    :: Array Char            -- Digits
     -> BigInt               -- Basis
     -> List Char            -- Input characters
     -> Either String BigInt -- Error or parsed number
@@ -165,7 +164,7 @@ biFromCharList digits basis cs0 = loop (reverse cs0) zero zero
     loop (c : cs) accumulator position  = do
         digitValue <- note
             ("Failed to lookup " <> show c <> " in digits " <> show digits)
-            (c `elemIndex` digits)
+            (c `Array.elemIndex` digits)
 
         let positionValue = basis `pow` position
         let delta         = (BI.fromInt digitValue) * positionValue
@@ -175,7 +174,7 @@ biFromCharList digits basis cs0 = loop (reverse cs0) zero zero
 
 -- Render a whole number in a certain basis
 preFromWhole
-    :: List Char                  -- Digits
+    :: Array Char                  -- Digits
     -> BigInt                     -- Basis
     -> BigInt                     -- Whole number
     -> Either String (List Char)  -- Error or pre radix characters
@@ -196,7 +195,7 @@ preFromWhole digits basis whole = loop Nil whole
 -- Render a propper fraction in a non-fractional representation in a certain
 -- basis
 postFromPropper
-    :: List Char                  -- Digits
+    :: Array Char                  -- Digits
     -> BigInt                     -- Base
     -> PreciseFloat               -- Remainder
     -> Either String (List Char)  -- Error or post radix characters
@@ -335,12 +334,12 @@ errorUnlessValidBasis basis maximalBasis = do
                          <> show maximalBasis)
 
 -- | Lookup a character in a list of characters identified by an BigInt index
-biIndex :: List Char -> BigInt -> Either String Char
+biIndex :: Array Char -> BigInt -> Either String Char
 biIndex digits iBI = do
     i <- note
         ("Failed to convert BigInt index " <> BI.toString iBI <> " to Int")
         (Int.fromNumber $ toNumber iBI)
     c <- note
         ("Failed to lookup index " <> show i <> " in " <> show digits)
-        (digits `index` i)
+        (digits `Array.index` i)
     pure c
