@@ -1,7 +1,7 @@
 module Test.Main where
 
 import Prelude
-import Basis
+import BaseRationals
 
 import Data.Ratio (Ratio(..))
 import Data.List (fromFoldable)
@@ -215,7 +215,7 @@ testFromString fromString' = do
 
 main :: forall e. Eff (console :: CONSOLE | e) Unit
 main = do
-  case createConversionFunctions digits of
+  case createFromToStringFunctions digits of
       Just {fromString, toString} -> do
           let tests =  testPfFromRatio
                     <> testPfScaling
