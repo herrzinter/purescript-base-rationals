@@ -40,9 +40,9 @@ isValidDigitArray array =
 
 -- | Create `isFinit` function based on an array of digits.
 -- | `isFinit` checks if the non-fractional representation of a fraction is
--- |    finit in a certain basis. The function is not exported directly, as
--- |    computing it requires prime factorization of all possible basis, which
--- |    is computational expensive, so it should only be done once.
+-- | finit in a certain basis. The function is not exported directly, as
+-- | computing it requires prime factorization of all possible basis, which
+-- | is computational expensive, so it should only be done once.
 isFinitFunctionFromDigits
     :: Array Char
     -> Maybe (Int -> PreciseRational -> Either String Boolean)
