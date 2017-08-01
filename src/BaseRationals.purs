@@ -24,8 +24,8 @@ import Data.EuclideanRing (class EuclideanRing)
 import Data.BigInt (BigInt(..), pow, toNumber, abs)
 import Data.Ratio (Ratio(..))
 import Data.Foldable (any, foldl)
-import Data.List (List(..), length, init, take, drop, filter, elemIndex, index,
-                  reverse, (:), (..), elem)
+import Data.List (List(..), length, init, take, drop, filter,reverse, (:), (..),
+                  elem)
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Either (Either(..))
 import Control.Error.Util (note)
@@ -57,7 +57,7 @@ digitsFromArray array = do
     pure $ Digits array
 
 -- | Unwrap `Array` of `Char`s from `Digits` container
-arrayFromDigits :: Array Char -> Either String Digits
+arrayFromDigits :: Digits -> Array Char
 arrayFromDigits (Digits array) = array
 
 -- | Get the maximal possible basis for `Digits`. It equals the length of the
@@ -112,15 +112,10 @@ biFromCharList
     -> Either String BigInt -- Error or parsed number
 biFromCharList digits basis cs0 = loop (reverse cs0) zero zero
   where
-    digitArray = arrayFromDigits digits
-
     loop (c : cs) accumulator position  = do
-        digitValue <- note
-            ("Failed to lookup " <> show c <> " in digits " <> show digits)
-            (c `Array.elemIndex` digitArray)
-
+        bi <- c `digitIndex` digits
         let positionValue = basis `pow` position
-        let delta         = (BI.fromInt digitValue) * positionValue
+        let delta         = bi * positionValue
 
         loop cs (accumulator + delta) (position + one)
     loop  _       accumulator _         = pure accumulator
@@ -140,7 +135,7 @@ preFromWhole digits basis whole = loop Nil whole
           let remainder = dividend `mod` basis
           let quotient = (dividend - remainder) / basis
           -- Get Corresponding digit character
-          c <- digits `digitIndex` remainder
+          c <- digits `index` remainder
 
           loop (c : cs) quotient
       | otherwise = Right cs
@@ -160,12 +155,12 @@ postFromPropper digits basis pf0 = tailRecM3 loop Nil Nil (pf0 `scale` basis)
         -> PreciseFloat       -- Intermediate value
         -> Either String _
     loop pfs cs pf@(PreciseFloat pfr)
-        | not $ isZero pf = case pf `elemIndex` pfs  of
+        | not $ isZero pf = case pf `List.elemIndex` pfs  of
             Nothing -> do
                 -- Calculate index *i* and lookup corresponding char *c*
                 let n = pfr.shift - pfr.infinitLength
                 let iBI = pfr.finit `stripNDigitsOnTheRight` n
-                c <- digits `digitIndex` iBI
+                c <- digits `index` iBI
                 let finit' = pfr.finit - iBI `appendNZerosOnTheRight` n
 
                 pure $ Loop
@@ -195,7 +190,7 @@ splitShift :: List Char -> {shift :: BigInt, cs :: List Char}
 splitShift cs = {shift, cs : filter (\c -> c /= '.') cs}
   where
     -- Calculate shift from position of radix point
-    indexOfRadixPoint = case '.' `elemIndex` cs of
+    indexOfRadixPoint = case '.' `List.elemIndex` cs of
         Just i  -> i + one
         Nothing -> length cs
     shift = BI.fromInt (length cs - indexOfRadixPoint)
@@ -204,7 +199,7 @@ splitShift cs = {shift, cs : filter (\c -> c /= '.') cs}
 -- "123.0" -> Just "123"
 alterCharsForDisplay :: List Char -> Maybe (List Char)
 alterCharsForDisplay cs = do
-    p <- '.' `elemIndex` cs
+    p <- '.' `List.elemIndex` cs
     let len = length cs
     case Nothing of
         _ | p == zero && len == one -> Just $ Cons '0' Nil  -- "." -> "0"
@@ -239,8 +234,8 @@ errorUnlessValidBasis basis digits = do
                          <> show maximalBasis)
 
 -- | Lookup a character in a list of characters identified by an BigInt index
-digitIndex :: Digits -> BigInt -> Either String Char
-digitIndex digits iBI = do
+index :: Digits -> BigInt -> Either String Char
+index digits iBI = do
     let digitArray = arrayFromDigits digits
     i <- note
         ("Failed to convert BigInt index " <> BI.toString iBI <> " to Int")
@@ -249,3 +244,13 @@ digitIndex digits iBI = do
         ("Failed to lookup index " <> show i <> " in " <> show digits)
         (digitArray `Array.index` i)
     pure c
+
+-- | Lookup the *index* `BigInt` of the first occurence of `Char` in
+-- | `Digits`
+digitIndex :: Char -> Digits -> Either String BigInt
+digitIndex c digits = do
+    let digitArray = arrayFromDigits digits
+    i <- note
+        ("Failed to lookup " <> show c <> " in digits " <> show digits)
+        (c `Array.elemIndex` digitArray)
+    pure $ BI.fromInt i
