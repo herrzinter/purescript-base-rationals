@@ -1,6 +1,7 @@
 module PreciseFloat
   ( PreciseFloat (..)
   , fromRatio
+  , fromInts
   , toRatio
   , isZero
   , isRecurring
@@ -102,6 +103,16 @@ fromRatio ratio = loop zero (num0 `appendNZerosOnTheRight` one) Nil zero
           , shift
           , infinitLength: zero
           }
+
+-- | Construct `PreciseFloat` from four `Int`s describiing `finit`, `infinit`,
+-- | `infinitLength` and `shift`
+fromInts :: Int -> Int -> Int -> Int -> PreciseFloat
+fromInts finit infinit infinitLength shift = PreciseFloat
+  { finit:          BI.fromInt finit
+  , infinit:        BI.fromInt infinit
+  , infinitLength:  BI.fromInt infinitLength
+  , shift:          BI.fromInt shift
+  }
 
 -- | Convert a `PreciseFloat` to a `PreciseRational` ie. convert a
 -- | non-fractional representation of a rational to a fractional one.
