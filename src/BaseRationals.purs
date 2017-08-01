@@ -5,7 +5,7 @@ module BaseRationals
   , arrayFromDigits
   , maximalBasisOfDigits
 
-  , isFinitFunctionFromDigits
+  , isRecurringInBasisFunctionFromDigits
   , fromString
   , toString
   ) where
@@ -58,7 +58,7 @@ digitsFromArray array = do
     pure $ Digits array
 
 -- | Unwrap `Array` of `Char`s from `Digits` container
-arrayFromDigits :: Digits -> Array Char
+arrayFromDigits :: Array Char -> Either String Digits
 arrayFromDigits (Digits array) = array
 
 -- | Get the maximal possible basis for `Digits`. It equals the length of the
@@ -73,10 +73,10 @@ maximalBasisOfDigits (Digits array) = Array.length array
 -- | The function is not exported directly, as computing it requires prime
 -- | factorization of the basis, which is computational expensive, so it should
 -- | only be done once for `Digits`.
-isFinitFunctionFromDigits
+isRecurringInBasisFunctionFromDigits
     :: Digits
     -> Maybe (Int -> PreciseRational -> Either String Boolean)
-isFinitFunctionFromDigits digits = pure isFinit
+isRecurringInBasisFunctionFromDigits digits = pure isFinit
   where
     maximalBasis = maximalBasisOfDigits digits
 
@@ -102,18 +102,11 @@ isFinitFunctionFromDigits digits = pure isFinit
             (listOfPrimeFactorLists `index` basisIndex)
         pure $ primeFactors
 
-    isFinit :: Int -> PreciseRational -> Either String Boolean
-    isFinit basis (Ratio _ den) = do
+    isRecurringInBasis :: PreciseFloat -> Int -> Either String Boolean
+    isRecurringInBasis (Ratio _ den) basis = do
         errorUnlessValidBasis basis digits
-        primeFactors <- getPrimeFactorsOfBasis basis
-        -- If the `den` can be completely factorized by the `primeFactors` of
-        -- `basis`, the fold results in one. In this case, the non-fractional
-        -- representation of `Ratio` is finit in `basis`
-        pure (foldl factorizeMany den primeFactors == one)
-      where
-        factorizeMany num factor
-            | num `mod` factor == zero = factorizeMany (num / factor) factor
-            | otherwise                = num
+        primeFactorsOfBasis <- getPrimeFactorsOfBasis basis
+        pure (den `isCompletelyFactorizedBy` primeFactorsOfBasis)
 
 -- | Parse a `PreciseRational` from a `String` in basis `Int` given
 -- | `Digits`.
@@ -309,6 +302,13 @@ calculatePrimes maximum
                     calculatePrimes' (number + one) (number : primes)
         in calculatePrimes' (one + one) Nil
     | otherwise = Nil
+
+isCompletelyFactorizedBy :: BigInt -> (List Int) -> Boolean
+isCompletelyFactorizedBy bi factors = (foldl factorizeMany bi factors == one)
+  where
+    factorizeMany num factor
+        | num `mod` factor == zero = factorizeMany (num / factor) factor
+        | otherwise                = num
 
 
 --
