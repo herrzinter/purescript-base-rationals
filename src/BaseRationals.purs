@@ -5,7 +5,6 @@ module BaseRationals
   , arrayFromDigits
   , maximalBasisOfDigits
 
-  , isRecurringInBasisFunctionFromDigits
   , fromString
   , toString
   ) where
@@ -66,47 +65,6 @@ arrayFromDigits (Digits array) = array
 maximalBasisOfDigits :: Digits -> Int
 maximalBasisOfDigits (Digits array) = Array.length array
 
-
--- | Create `isFinit` function given `Digits`, which checks if
--- | the non-fractional representation of a `PreciseRational` is recurring
--- | in a certain *basis* `Int`.
--- | The function is not exported directly, as computing it requires prime
--- | factorization of the basis, which is computational expensive, so it should
--- | only be done once for `Digits`.
-isRecurringInBasisFunctionFromDigits
-    :: Digits
-    -> Maybe (Int -> PreciseRational -> Either String Boolean)
-isRecurringInBasisFunctionFromDigits digits = pure isFinit
-  where
-    maximalBasis = maximalBasisOfDigits digits
-
-    -- The prime factors of all basis are needed to compute if a fraction
-    -- has a finit non-fractional representation. As computation of primes
-    -- and factorizations is expensive, it is done once for all possible basis
-    listOfPrimeFactorLists :: List (List BigInt)
-    listOfPrimeFactorLists = do
-        basis <- 2 .. maximalBasis
-        let {factors} = factorize primes basis
-        pure $ map BI.fromInt factors
-      where
-        primes = calculatePrimes maximalBasis
-
-    getPrimeFactorsOfBasis :: Int -> Either String (List BigInt)
-    getPrimeFactorsOfBasis basis = do
-        errorUnlessValidBasis basis digits
-        -- The first valid basis is 2 and thus, has index zero. Therefore, the
-        -- basis is shifted by two to get the corresponding index
-        let basisIndex = basis - 2
-        primeFactors <- note
-            ("Could not get prime factors for basis " <> show basis)
-            (listOfPrimeFactorLists `index` basisIndex)
-        pure $ primeFactors
-
-    isRecurringInBasis :: PreciseFloat -> Int -> Either String Boolean
-    isRecurringInBasis (Ratio _ den) basis = do
-        errorUnlessValidBasis basis digits
-        primeFactorsOfBasis <- getPrimeFactorsOfBasis basis
-        pure (den `isCompletelyFactorizedBy` primeFactorsOfBasis)
 
 -- | Parse a `PreciseRational` from a `String` in basis `Int` given
 -- | `Digits`.
@@ -253,62 +211,6 @@ alterCharsForDisplay cs = do
           | p == zero               -> Just $ '0' : cs      -- ".x" -> "0.x"
           | p == len - one          -> init cs              -- "x." -> "x"
           | otherwise               -> Just cs              -- Do nothing
-
-
---
---  Factorization Helpers
---
-
--- Factorize a `number` by a list of possible `factors`. The resulting
--- factorization contains a list of all successfull factorizations and the
--- remainder eg.
--- factorize (3 : 7 : Nil) 244 -> {factors : (3 : 3 : 7 : Nil), remainder : 1}
--- as 244 can be divided two times by 3 and one time by 7, befor the remainder
--- 1 can no further be divided
-factorize
-    :: forall n . EuclideanRing n => Eq n
-    => List n                               -- List of possible factors
-    -> n                                    -- Number
-    -> {factors :: List n, remainder :: n}  -- Factorization
-factorize factors number
-    | number /= zero =
-        let factorizeRecursive (f : fs) factorization
-                | factorization.remainder `mod` f == zero =
-                    factorizeRecursive (f : fs) factorization'
-                      where
-                        factorization' =
-                          { factors: (f : factorization.factors)
-                          , remainder: (factorization.remainder / f)
-                          }
-                | otherwise =
-                factorizeRecursive fs factorization
-            factorizeRecursive _ factorization = factorization
-        in factorizeRecursive factors {factors : Nil, remainder : number}
-    | otherwise = {factors : Nil, remainder : zero}
-
-
--- Calculate a list of all prime numbers between two and the maximum `n`
-calculatePrimes
-    :: forall n . EuclideanRing n => Eq n => Ord n
-    => n      -- Maximum
-    -> List n -- List of prime numbers between two and maximum `n`
-calculatePrimes maximum
-    | maximum > one =
-        let calculatePrimes' number primes
-                | number > maximum = primes
-                | any (\p -> number `mod` p == zero) primes =
-                    calculatePrimes' (number + one) primes
-                | otherwise =
-                    calculatePrimes' (number + one) (number : primes)
-        in calculatePrimes' (one + one) Nil
-    | otherwise = Nil
-
-isCompletelyFactorizedBy :: BigInt -> (List Int) -> Boolean
-isCompletelyFactorizedBy bi factors = (foldl factorizeMany bi factors == one)
-  where
-    factorizeMany num factor
-        | num `mod` factor == zero = factorizeMany (num / factor) factor
-        | otherwise                = num
 
 
 --
