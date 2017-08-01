@@ -7,6 +7,9 @@ module BaseRationals
 
   , fromString
   , toString
+
+  , index
+  , digitIndex
   ) where
 
 
@@ -98,6 +101,29 @@ toString digits basis ratio = do
     cs' <- note "String is empty" (alterCharsForDisplay cs)
 
     pure $ String.fromCharArray $ List.toUnfoldable $ cs'
+
+
+-- | Lookup a character in a list of characters identified by an BigInt index
+index :: Digits -> BigInt -> Either String Char
+index digits iBI = do
+    let digitArray = arrayFromDigits digits
+    i <- note
+        ("Failed to convert BigInt index " <> BI.toString iBI <> " to Int")
+        (Int.fromNumber $ toNumber iBI)
+    c <- note
+        ("Failed to lookup index " <> show i <> " in " <> show digits)
+        (digitArray `Array.index` i)
+    pure c
+
+-- | Lookup the *index* `BigInt` of the first occurence of `Char` in
+-- | `Digits`
+digitIndex :: Char -> Digits -> Either String BigInt
+digitIndex c digits = do
+    let digitArray = arrayFromDigits digits
+    i <- note
+        ("Failed to lookup " <> show c <> " in digits " <> show digits)
+        (c `Array.elemIndex` digitArray)
+    pure $ BI.fromInt i
 
 
 --
@@ -232,25 +258,3 @@ errorUnlessValidBasis basis digits = do
         (basis <= maximalBasis)
         (Left $ "Basis " <> show basis <> " bigger then maximal basis "
                          <> show maximalBasis)
-
--- | Lookup a character in a list of characters identified by an BigInt index
-index :: Digits -> BigInt -> Either String Char
-index digits iBI = do
-    let digitArray = arrayFromDigits digits
-    i <- note
-        ("Failed to convert BigInt index " <> BI.toString iBI <> " to Int")
-        (Int.fromNumber $ toNumber iBI)
-    c <- note
-        ("Failed to lookup index " <> show i <> " in " <> show digits)
-        (digitArray `Array.index` i)
-    pure c
-
--- | Lookup the *index* `BigInt` of the first occurence of `Char` in
--- | `Digits`
-digitIndex :: Char -> Digits -> Either String BigInt
-digitIndex c digits = do
-    let digitArray = arrayFromDigits digits
-    i <- note
-        ("Failed to lookup " <> show c <> " in digits " <> show digits)
-        (c `Array.elemIndex` digitArray)
-    pure $ BI.fromInt i
