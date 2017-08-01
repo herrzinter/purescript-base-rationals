@@ -1,5 +1,33 @@
-module BaseRationals
+-- | Implements in arbitrary basis given arbitrary digits:
+-- | * parsing a string for a rational
+-- | * rendering a non-fractional string represenation of a rational
+-- |
+-- | Digits can be created from an `Array` of `Char`s.
+-- | ```
+-- | let digits  = digitsFromArray ['0', '1', '2', 'A', 'B']
+-- | ```
+-- |
+-- | `toString` and `fromString` run both in the `(Either String)` monad,
+-- | providing `String` error messages.
+-- | Both have `Digits` and a *basis* as `Int` as their first two arguments;
+-- | and a `String` or a `PreciseRational` as third one respectively. A usage
+-- | example is:
+-- | ```
+-- | string :: Either String String
+-- | string = do
+-- |     let pr = PR.fromInts 1 7 :: PreciseRational
+-- |     let basis = 4
+-- |     s <-
+-- |     pure s
+-- |
+-- | pr :: Either String PreciseRational
+-- | pr = do
+-- |     let s = "A2AB01.20B1A" :: String
+-- |     let basis = 5
+-- |     pr <- fromString digits basis s
+-- | ```
 
+module BaseRationals
   ( Digits
   , digitsFromArray
   , arrayFromDigits
@@ -103,7 +131,7 @@ toString digits basis ratio = do
     pure $ String.fromCharArray $ List.toUnfoldable $ cs'
 
 
--- | Lookup the *digit* `Char` with *index* `BigInt` in `Digits` 
+-- | Lookup the *digit* `Char` with *index* `BigInt` in `Digits`
 index :: Digits -> BigInt -> Either String Char
 index digits iBI = do
     let digitArray = arrayFromDigits digits
@@ -127,8 +155,29 @@ digitIndex c digits = do
 
 
 --
---  Conversion helpers
+--  Helpers
 --
+
+-- Check if at least one of the elements of the list occur twice in the list
+hasNoRepeatingElem :: forall e . Eq e => List e -> Boolean
+hasNoRepeatingElem list = loop list Nil
+  where
+    loop (e : es) es' | not $ e `elem` es'  = loop es (e : es')
+                      | otherwise           = false
+    loop _        _                         = true
+
+-- Unless guard, checking if the current basis is in the range of valid
+-- basis, ie. if `2 <= basis <= maximalBasis`
+errorUnlessValidBasis :: Int -> Digits -> Either String Unit
+errorUnlessValidBasis basis digits = do
+    let maximalBasis = maximalBasisOfDigits digits
+    unless
+        (basis >= 2)
+        (Left $ "Basis " <> show basis <> " smaller than '2'")
+    unless
+        (basis <= maximalBasis)
+        (Left $ "Basis " <> show basis <> " bigger then maximal basis "
+                         <> show maximalBasis)
 
 -- Parse a `BigInt` from characters given *digits* and *basis*
 biFromCharList
@@ -232,29 +281,3 @@ alterCharsForDisplay cs = do
           | p == zero               -> Just $ '0' : cs      -- ".x" -> "0.x"
           | p == len - one          -> init cs              -- "x." -> "x"
           | otherwise               -> Just cs              -- Do nothing
-
-
---
--- Other Helpers
---
-
--- Check if at least one of the elements of the list occur twice in the list
-hasNoRepeatingElem :: forall e . Eq e => List e -> Boolean
-hasNoRepeatingElem list = loop list Nil
-  where
-    loop (e : es) es' | not $ e `elem` es'  = loop es (e : es')
-                      | otherwise           = false
-    loop _        _                         = true
-
--- Unless guard, checking if the current basis is in the range of valid
--- basis, ie. if `2 <= basis <= maximalBasis`
-errorUnlessValidBasis :: Int -> Digits -> Either String Unit
-errorUnlessValidBasis basis digits = do
-    let maximalBasis = maximalBasisOfDigits digits
-    unless
-        (basis >= 2)
-        (Left $ "Basis " <> show basis <> " smaller than '2'")
-    unless
-        (basis <= maximalBasis)
-        (Left $ "Basis " <> show basis <> " bigger then maximal basis "
-                         <> show maximalBasis)

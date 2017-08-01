@@ -29,9 +29,9 @@ import Data.Maybe (Maybe(..))
 -- | Rational numbers can have recurring, and thus, infinit, non-fractional
 -- | represenations. The `finit`, ie. not recurring, and `infinit` , ie.
 -- | recurring, part are seperated.
--- | `infinitLength` specifies the length of the infinit part. This is necessarry
--- | to encode the difference between infinit parts which are lead by zeros and
--- | infinit parts which are not, eg.
+-- | `infinitLength` specifies the length of the infinit part. This is
+-- | necessarry to encode the difference between infinit parts which are lead by
+-- | zeros and infinit parts which are not, eg.
 -- | "0.[1]" and "0.[001]" have both infinit = 1, but different
 -- | `infinitLength`s.
 -- | `shift` specifies by how many digits the radix points has to be shifted to
