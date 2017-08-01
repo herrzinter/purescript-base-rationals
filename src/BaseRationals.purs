@@ -67,15 +67,15 @@ maximalBasisOfDigits :: Digits -> Int
 maximalBasisOfDigits (Digits array) = Array.length array
 
 
--- | `isFinit` checks if the non-fractional representation of a fraction is
--- | finit in a certain basis.
-type IsFinitFunction = Int -> PreciseRational -> Either String Boolean
-
--- | Create `isFinit` function based on an array of digits.
--- | The function is not exported directly, as
--- | computing it requires prime factorization of all possible basis, which
--- | is computational expensive, so it should only be done once for `Digits`.
-isFinitFunctionFromDigits :: Digits -> Maybe IsFinitFunction
+-- | Create `isFinit` function given `Digits`, which checks if
+-- | the non-fractional representation of a `PreciseRational` is recurring
+-- | in a certain *basis* `Int`.
+-- | The function is not exported directly, as computing it requires prime
+-- | factorization of the basis, which is computational expensive, so it should
+-- | only be done once for `Digits`.
+isFinitFunctionFromDigits
+    :: Digits
+    -> Maybe (Int -> PreciseRational -> Either String Boolean)
 isFinitFunctionFromDigits digits = pure isFinit
   where
     maximalBasis = maximalBasisOfDigits digits
