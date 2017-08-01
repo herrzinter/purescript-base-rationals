@@ -103,7 +103,7 @@ toString digits basis ratio = do
     pure $ String.fromCharArray $ List.toUnfoldable $ cs'
 
 
--- | Lookup a character in a list of characters identified by an BigInt index
+-- | Lookup the *digit* `Char` with *index* `BigInt` in `Digits` 
 index :: Digits -> BigInt -> Either String Char
 index digits iBI = do
     let digitArray = arrayFromDigits digits
