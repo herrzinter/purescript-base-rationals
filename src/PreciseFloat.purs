@@ -2,6 +2,7 @@ module PreciseFloat
   ( PreciseFloat (..)
   , fromRatio
   , fromInts
+  , fromStrings
   , toRatio
   , isZero
   , isRecurring
@@ -113,6 +114,17 @@ fromInts finit infinit infinitLength shift = PreciseFloat
   , infinitLength:  BI.fromInt infinitLength
   , shift:          BI.fromInt shift
   }
+
+-- | Try to construct `PreciseFloat` from four `Strings`s describiing `finit`,
+-- |`infinit`, `infinitLength` and `shift`
+fromStrings :: String -> String -> String -> String -> Maybe PreciseFloat
+fromStrings fs is ils ss = do
+    finit <- BI.fromString fs
+    infinit <- BI.fromString is
+    infinitLength <- BI.fromString ils
+    shift <- BI.fromString ss
+
+    pure $ PreciseFloat {finit, infinit, infinitLength, shift}
 
 -- | Convert a `PreciseFloat` to a `PreciseRational` ie. convert a
 -- | non-fractional representation of a rational to a fractional one.

@@ -4,6 +4,8 @@ import Prelude
 import BaseRationals
 
 import Data.BigInt as BI
+import PreciseRational as PR
+import PreciseFloat as PF
 
 import Data.Ratio (Ratio(..))
 import Data.List (fromFoldable)
@@ -26,37 +28,23 @@ pfFromRatioTestArray =
     ,   PFFromRatioTestInt     1230 10            123 0 0 0
     ,   PFFromRatioTestInt     5 11               0 45 2 2
     ,   PFFromRatioTestInt     10000 10           1000 0 0 0
-    ,   PFFromRatioTestString "123189" "35"       "35196" "857142" 6 7
-    ,   PFFromRatioTestString "89701389" "35"     "25628968" "285714" 6 7
+    ,   PFFromRatioTestString "123189" "35"       "35196" "857142" "6" "7"
+    ,   PFFromRatioTestString "89701389" "35"     "25628968" "285714" "6" "7"
     ,   PFFromRatioTestInt     10 13              0 769230 6 6
     ]
 
 data PreciseFloatTest
-    = PFFromRatioTestString String String String String Int Int
-    | PFFromRatioTestInt    Int    Int    Int    Int    Int Int
+    = PFFromRatioTestString String String String String String String
+    | PFFromRatioTestInt    Int    Int    Int    Int    Int    Int
 
 
-readPFFromRatioTest (PFFromRatioTestString ns ds fs is ils s) = do
-    n <- BI.fromString ns
-    d <- BI.fromString ds
-    finit <- BI.fromString fs
-    infinit <- BI.fromString is
-    let infinitLength = BI.fromInt ils
-    let shift = BI.fromInt s
-
-    let pf' = PreciseFloat {finit, infinit, infinitLength, shift}
-    let r   = Ratio n d
-
+readPFFromRatioTest (PFFromRatioTestString ns ds fs is ils ss) = do
+    r <- PR.fromStrings ns ds
+    pf' <- PF.fromStrings fs is ils ss
     pure {r, pf'}
-readPFFromRatioTest (PFFromRatioTestInt n d f i ils s) = do
-    let finit   = BI.fromInt f
-    let infinit = BI.fromInt i
-    let shift = BI.fromInt s
-    let infinitLength = BI.fromInt ils
-
-    let pf' = PreciseFloat {finit, infinit, infinitLength, shift}
-    let r   = Ratio (BI.fromInt n) (BI.fromInt d)
-
+readPFFromRatioTest (PFFromRatioTestInt n d f i il s) = do
+    let r = PR.fromInts n d
+    let pf' = PF.fromInts f i il s
     pure {r, pf'}
 
 testPfFromRatio = do
@@ -89,22 +77,9 @@ data PfScalingTest
     = PfScalingTestInt Int Int Int Int Int Int Int Int Int
 
 readPfScalingTest (PfScalingTestInt f1 i1 il1 s1   f2 i2 il2 s2 factor) =
-  let
-    pf1 = PreciseFloat
-        {   finit         : BI.fromInt f1
-        ,   infinit       : BI.fromInt i1
-        ,   infinitLength : BI.fromInt il1
-        ,   shift         : BI.fromInt s1
-        }
-    pf2 = PreciseFloat
-        {   finit         : BI.fromInt f2
-        ,   infinit       : BI.fromInt i2
-        ,   infinitLength : BI.fromInt il2
-        ,   shift         : BI.fromInt s2
-        }
-
-    in
-      {pf1, pf2, factor : BI.fromInt factor}
+  let pf1 = PF.fromInts f1 i1 il1 s1
+      pf2 = PF.fromInts f2 i2 il2 s2
+  in  {pf1, pf2, factor : BI.fromInt factor}
 
 
 testPfScaling = do
@@ -169,11 +144,7 @@ readToFromTest (TestToFromStringInt b s ni di) = do
 
     pure {b, s, r}
 readToFromTest (TestToFromStringString b s ns ds) = do
-    nbi <- note "Conversion failed" (BI.fromString ns)
-    dbi <- note "Conversion failed" (BI.fromString ds)
-
-    let r = Ratio nbi dbi
-
+    r <- note "Conversion failde" (PR.fromStrings ns ds)
     pure {b, s, r}
 
 testToString
