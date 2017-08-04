@@ -30,3 +30,12 @@ Right (15 % 16)
 Although, recurring numbers can be rendered with `toString`, they can not be
 parsed at the moment, thus `fromString digits 10 "0.[3]"` will fail.
 
+# Installation
+
+```
+bower install purescript-baseRationals
+```
+
+# Documentation
+
+Documentation is published on [pursuit](pursuit.purescript.org/packages/purescript-baseRationals/).
