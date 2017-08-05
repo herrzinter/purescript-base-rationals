@@ -12,9 +12,6 @@ certain basis. A few examples, given standard digits from "0" to "F":
 * "0.[1]" in base 3 -> 1/3
 * "0.F" in base 16 -> 15/16
 
-Although, recurring numbers can be rendered with `toString`, they can not be
-parsed at the moment, thus parsing `"0.[1]"` will fail.
-
 # Installation
 
 ```

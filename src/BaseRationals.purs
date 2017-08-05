@@ -53,7 +53,7 @@ import Data.List as List
 
 import Data.EuclideanRing (class EuclideanRing)
 import Data.BigInt (BigInt(..), pow, toNumber, abs)
-import Data.Ratio (Ratio(..))
+import Data.Ratio (Ratio(..), (%))
 import Data.Foldable (any, foldl)
 import Data.List (List(..), length, init, take, drop, filter,reverse, (:), (..),
                   elem)
@@ -96,7 +96,6 @@ arrayFromDigits (Digits array) = array
 maximalBasisOfDigits :: Digits -> Int
 maximalBasisOfDigits (Digits array) = Array.length array
 
-
 -- | Parse a `PreciseRational` from a `String` in basis `Int` given
 -- | `Digits`.
 fromString :: Digits -> Int -> String -> Either String PreciseRational
@@ -106,11 +105,22 @@ fromString digits basis string = do
     let cs0 = List.fromFoldable $ String.toCharArray $ string
 
     let {sign, cs: cs1} = splitSign cs0
-    let {shift, cs: cs2} = splitShift cs1
+    {fcs: fcs0, ics} <- splitFinitAndInfinit cs1
+    let {shift, cs: fcs1} = splitShift fcs0
 
     let basisBI = BI.fromInt basis
-    numerator <- biFromCharList digits basisBI cs2
-    pure $ Ratio (sign * numerator) (basisBI `pow` shift)
+    finit <- biFromCharList digits basisBI fcs1
+    infinit <- biFromCharList digits basisBI ics
+
+    let ratio =
+          if infinit == zero
+          then finit % one
+          else (finit * factor + infinit) % factor
+            where
+              infinitLength = BI.fromInt $ List.length ics
+              factor = basisBI `pow` infinitLength - one
+
+    pure $ ratio * (sign % (basisBI `pow` shift))
 
 -- | Render a non-fractional `String`-representation of a `PreciseRational`
 -- | in basis `Int` given `Digits`.
@@ -269,6 +279,48 @@ splitShift cs = {shift, cs : filter (\c -> c /= '.') cs}
         Just i  -> i + one
         Nothing -> length cs
     shift = BI.fromInt (length cs - indexOfRadixPoint)
+
+-- TODO this should be implemented via a parser library
+splitFinitAndInfinit
+    :: List Char
+    -> Either String {fcs:: List Char, ics:: List Char}
+splitFinitAndInfinit cs = f ('[' `List.elemIndex` cs) (']' `List.elemIndex` cs)
+  where
+    f (Just iOpenBracket) Nothing               = Left "Missing ']'"
+    f Nothing             (Just iCloseBracket)  = Left "Missing '['"
+    f Nothing             Nothing               = Right {fcs: cs, ics: Nil}
+    f (Just iOpenBracket) (Just iCloseBracket)  = do
+        -- Check if '[' and ']' are used correctly
+        unless
+            (not $ 1 < (List.length $ filter (\c -> c == '[') cs))
+            (Left "More than one '[' present")
+        unless
+            (not $ 1 < (List.length $ filter (\c -> c == ']') cs))
+            (Left "More than one ']' present")
+        unless
+            (iOpenBracket < iCloseBracket)
+            (Left "Recurrence brackets are in wrong order")
+        unless
+            (not $ iOpenBracket + 1 == iCloseBracket)
+            (Left "Recurrence brackets are empty")
+
+        iPoint <- note
+            "Recurrence brackets present, but no radix point"
+            ('.' `List.elemIndex` cs)
+
+        unless
+            (iPoint < iOpenBracket)
+            (Left "Recurrence brackets appear before the radix point")
+        unless
+            (iCloseBracket == (List.length cs - 1))
+            (Left "']' has to be last character")
+
+        let fcs = take iOpenBracket cs
+        ics <- note
+            "Seperating reuccring characters failed"
+            (init $ drop (iOpenBracket + one) cs)
+
+        pure {fcs, ics}
 
 -- Add/remove some characters to display number more naturally, eg.
 -- "123.0" -> Just "123"
