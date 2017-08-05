@@ -1,5 +1,12 @@
 {
-  "name": "purescript-basecalculator",
+  "name": "purescript-base-rationals",
+  "description": "Arbitrary base rationals",
+  "license": "GPL-3.0",
+  "homepage": "https://github.com/herrzinter/purescript-base-rationals",
+  "repository": {
+      "type": "git",
+      "url": "git://github.com/herrzinter/purescript-base-rationals.git"
+  },
   "ignore": [
     "**/.*",
     "node_modules",
@@ -8,16 +15,16 @@
   ],
   "dependencies": {
     "purescript-prelude": "^3.0.0",
-    "purescript-console": "3.0.0",
     "purescript-lists" : "4.0.1",
     "purescript-bigints": "3.0.0",
     "purescript-integers": "3.0.0",
     "purescript-rationals" : "herrzinter/purescript-rationals#5e427812341c3cc2d1cb84639ed0d1f161dc55bf",
     "purescript-tailrec" : "3.3.0",
-    "purescript-test-unit" : "11.0.0",
     "purescript-errors" : "3.0.0"
-    },
+  },
   "devDependencies": {
+    "purescript-console": "3.0.0",
+    "purescript-test-unit" : "11.0.0",
     "purescript-psci-support": "^3.0.0"
   }
 }

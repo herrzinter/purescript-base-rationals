@@ -20,4 +20,4 @@ bower install purescript-baseRationals
 
 # Documentation
 
-Documentation is published on [pursuit](pursuit.purescript.org/packages/purescript-baseRationals/).
+Documentation is published on [pursuit](pursuit.purescript.org/packages/purescript-base-rationals/).
