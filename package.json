@@ -5,7 +5,7 @@
         "test": "pulp test"
     },
     "dependencies": {
-        "big-integer": "^1.6.17"
+        "big-integer": "^1.6.23"
     },
     "devDependencies": {
         "pulp": "^11.0.0",
