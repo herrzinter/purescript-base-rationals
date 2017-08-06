@@ -3,7 +3,9 @@ sudo: false
 node_js: stable
 install:
     - npm install -g bower
-    - bower install
     - npm install
 script:
+    - bower install --production
+    - npm run build
+    - bower install
     - npm run test
