@@ -199,6 +199,10 @@ biFromCharList digits basis cs0 = loop (reverse cs0) zero zero
   where
     loop (c : cs) accumulator position  = do
         bi <- c `digitIndex` digits
+        unless
+            (bi < basis)
+            (Left $ show c <> " is no valid character in base " <> show basis)
+
         let positionValue = basis `pow` position
         let delta         = bi * positionValue
 
