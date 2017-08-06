@@ -15,9 +15,9 @@ certain basis. A few examples, given standard digits from "0" to "F":
 # Installation
 
 ```
-bower install purescript-baseRationals
+bower install purescript-base-rationals
 ```
 
 # Documentation
 
-Documentation is published on [pursuit](pursuit.purescript.org/packages/purescript-base-rationals/).
+Documentation is published on [pursuit](https://pursuit.purescript.org/packages/purescript-base-rationals/).
