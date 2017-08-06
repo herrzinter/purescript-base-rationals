@@ -21,7 +21,7 @@ import Data.String as String
 import Data.BigInt as BI
 
 import Data.BigInt (BigInt(..), pow)
-import Data.Ratio (Ratio(..), (%))
+import Data.Ratio (Ratio, (%), numerator, denominator)
 import Data.List (List(..), elemIndex, (:))
 import Data.Maybe (Maybe(..))
 
@@ -65,7 +65,9 @@ fromRatio ratio = loop zero (num0 `appendNZerosOnTheRight` one) Nil zero
   where
     -- Seperate whole/propper part from remainder as algorithm fails to work
     -- with improper ratios
-    {whole, propper: (Ratio num0 den)} = toMixedRatio ratio
+    {whole, propper} = toMixedRatio ratio
+    num0 = numerator propper
+    den = denominator propper
 
     loop
       :: BigInt       -- Counter representing the shift
@@ -151,8 +153,9 @@ isZero (PreciseFloat pfr) = pfr.finit == zero && pfr.infinit == zero
 scale :: PreciseFloat -> BigInt -> PreciseFloat
 scale pf factor = fromRatio ((num * factor) % den)
   where
-    (Ratio num den) = toRatio pf
-
+    ratio = toRatio pf
+    num = numerator ratio
+    den = denominator ratio
 
 -- Helpers
 
@@ -169,8 +172,10 @@ stripNDigitsOnTheRight value shift = value / (ten `pow` shift)
 -- | Seperate the `whole` from the `propper` part of an (possibly) impropper
 -- | fraction
 toMixedRatio :: PreciseRational -> {whole :: BigInt, propper :: PreciseRational}
-toMixedRatio impropper@(Ratio num den) = {whole, propper}
+toMixedRatio impropper = {whole, propper}
   where
+    num = numerator impropper
+    den = denominator impropper
     -- Calculate whole part of the impropper ratio and substract it to get
     -- propper ratio
     whole   = num / den

@@ -53,7 +53,7 @@ import Data.List as List
 
 import Data.EuclideanRing (class EuclideanRing)
 import Data.BigInt (BigInt(..), pow, toNumber, abs)
-import Data.Ratio (Ratio(..), (%))
+import Data.Ratio (Ratio, (%), numerator, denominator)
 import Data.Foldable (any, foldl)
 import Data.List (List(..), length, init, take, drop, filter,reverse, (:), (..),
                   elem)

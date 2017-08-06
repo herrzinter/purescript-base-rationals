@@ -7,7 +7,7 @@ import Data.BigInt as BI
 import PreciseRational as PR
 import PreciseFloat as PF
 
-import Data.Ratio (Ratio(..))
+import Data.Ratio (Ratio)
 import Data.List (fromFoldable)
 import Data.Array (foldl)
 import PreciseFloat (PreciseFloat (..), scale, fromRatio)
