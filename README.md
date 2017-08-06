@@ -16,6 +16,7 @@ certain basis. A few examples, given standard digits from "0" to "F":
 
 ```
 bower install purescript-base-rationals
+npm install big-integer
 ```
 
 # Documentation
